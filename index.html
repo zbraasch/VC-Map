@@ -802,7 +802,7 @@
               </div>
               <div class="settingDesc">Batch size for geocoding</div>
             </div>
-            <input type="number" id="batchSize" class="settingInput" min="1" max="50" value="4" />
+            <input type="number" id="batchSize" class="settingInput" min="1" max="50" value="10" />
           </div>
         </div>
       </section>
@@ -1103,8 +1103,8 @@
     // Tile sources for light/dark mode
     const lightTileSource = new ol.source.OSM();
     const darkTileSource = new ol.source.XYZ({
-      url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',
-      attributions: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
+      attributions: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     });
 
     const tileLayer = new ol.layer.Tile({
@@ -1662,7 +1662,7 @@
       return base + '?' + params.toString();
     }
 
-    async function geocodeOne(item, endpoint){
+    async function geocodeOne(item, endpoint, retryCount = 0){
       item.error=''; item.lastQuery=''; item.lastStatus='';
       const queries = buildQueries(item);
 
@@ -1676,6 +1676,12 @@
 
           if(!r.ok){
             item.error = `Geocoder HTTP error: ${r.status}` + (r.text ? ` — ${String(r.text).slice(0,160)}` : '');
+            // Retry on rate limit with exponential backoff
+            if((r.status === 429 || r.status === 403) && retryCount < 3){
+              const backoff = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+              await new Promise(res => setTimeout(res, backoff));
+              return geocodeOne(item, endpoint, retryCount + 1);
+            }
             if(r.status === 429 || r.status === 403) return;
             continue;
           }
@@ -1709,6 +1715,12 @@
         } catch(e){
           item.error = `Fetch failed: ${e && e.message ? e.message : String(e)}`;
           item.lastStatus = 'Fetch exception';
+          // Retry on network errors
+          if(retryCount < 3){
+            const backoff = Math.pow(2, retryCount) * 1000;
+            await new Promise(res => setTimeout(res, backoff));
+            return geocodeOne(item, endpoint, retryCount + 1);
+          }
           return;
         }
 
@@ -1754,12 +1766,16 @@
 
       const endpoint = (elEndpoint.value || 'https://nominatim.openstreetmap.org/search').trim();
       const delay = Math.max(50, parseInt(elDelay.value || '100', 10));
-      const batchSize = Math.max(1, Math.min(50, parseInt(elBatchSize.value || '4', 10)));
+      const batchSize = Math.max(1, Math.min(50, parseInt(elBatchSize.value || '10', 10)));
 
       const total = state.length;
       let processed = 0;
 
       showProgress(true);
+      updateProgress(0, total);
+      
+      // Allow DOM to update
+      await new Promise(r => requestAnimationFrame(r));
 
       // Process in batches
       for(let i = 0; i < state.length; i += batchSize){
@@ -1769,18 +1785,24 @@
         
         // Mark batch as queued and render
         batch.forEach(item => { if(item.status === 'pending') item.status = 'queued'; });
+        updateProgress(i, total);
         render();
         
-        // Run batch in parallel
+        // Allow DOM to update
+        await new Promise(r => requestAnimationFrame(r));
+        
+        // Run batch in parallel, update UI as each completes
+        let batchCompleted = 0;
         await Promise.all(batch.map(async (item) => {
           if(!running) return;
           await geocodeOne(item, endpoint);
           if(item.status!=='ok') item.status='no';
+          batchCompleted++;
+          updateProgress(i + batchCompleted, total);
+          render();
         }));
         
-        processed += batch.length;
-        updateProgress(processed, total);
-        render();
+        processed = i + batch.length;
         
         // Delay between batches
         if(i + batchSize < state.length && running){
