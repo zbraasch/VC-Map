@@ -1,0 +1,1840 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Japanese Venture Capital Firms — Interactive Map</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css" />
+
+  <style>
+    :root{
+      --bg:#f6f7f9;
+      --card:#ffffff;
+      --text:#0b1320;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --shadow:0 12px 28px rgba(15, 23, 42, .08);
+      --radius:22px;
+      --link:#2563eb;
+      --ok:#16a34a;
+      --bad:#dc2626;
+      --pending:#6b7280;
+      --card-padding:16px;
+    }
+
+    [data-theme="dark"]{
+      --bg:#0f172a;
+      --card:#1e293b;
+      --text:#f1f5f9;
+      --muted:#94a3b8;
+      --border:#334155;
+      --shadow:0 12px 28px rgba(0, 0, 0, .4);
+      --link:#60a5fa;
+    }
+
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    }
+    *{box-sizing:border-box; margin:0; padding:0;}
+    a{color:var(--link); text-decoration:none;}
+    a:hover{text-decoration:underline;}
+
+    /* Top nav */
+    .topbar{
+      position:fixed; inset:0 0 auto 0; height:64px; z-index:30;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 14px;
+      background:var(--bg);
+      border-bottom:1px solid var(--border);
+    }
+    .leftGroup, .rightGroup{display:flex; align-items:center; gap:10px;}
+    .iconBtn{
+      height:44px; width:44px; border-radius:14px;
+      border:1px solid transparent;
+      background:transparent;
+      display:grid; place-items:center;
+      cursor:pointer;
+      color:var(--text);
+      transition: background .12s ease, border-color .12s ease, transform .12s ease;
+    }
+    .iconBtn:hover{background:var(--card); border-color:var(--border); transform:translateY(-1px);}
+    .iconBtn:active{transform:translateY(0);}
+
+    .titleBlock{min-width:0;}
+    .title{
+      font-weight:800; letter-spacing:-.2px;
+      font-size:16px; line-height:1.1;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      margin:0;
+    }
+    .subtitle{
+      margin:2px 0 0 0;
+      color:var(--muted); font-size:12px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    .countChips{display:flex; align-items:center; gap:6px; cursor:pointer;}
+    .chip{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:5px 8px;
+      border-radius:999px;
+      background:var(--card);
+      border:1px solid var(--border);
+      box-shadow:0 2px 10px rgba(15,23,42,.04);
+      font-size:11px;
+      color:var(--muted);
+      user-select:none;
+      cursor:pointer;
+    }
+    .dot{width:8px; height:8px; border-radius:999px; display:inline-block;}
+    .dot.ok{background:var(--ok);}
+    .dot.no{background:var(--bad);}
+    .dot.pending{background:#9ca3af;}
+    .statusPill.pending .dot{animation:pulse 1s ease-in-out infinite;}
+    @keyframes pulse{
+      0%, 100%{opacity:1;}
+      50%{opacity:0.4;}
+    }
+
+    .pillBtn{
+      border:1px solid var(--border);
+      background:var(--card);
+      height:44px;
+      padding:0 14px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      cursor:pointer;
+      box-shadow:0 2px 10px rgba(15,23,42,.04);
+      transition:transform .12s ease, background .12s ease;
+      font-size:13px;
+      font-weight:600;
+    }
+    .pillBtn:hover{transform:translateY(-1px);}
+    .pillBtn.primary{
+      background:#eef2ff;
+      border-color:#c7d2fe;
+      color:#1e40af;
+    }
+
+    /* Map fills background */
+    #map{
+      position:fixed;
+      top:64px;
+      right:0;
+      bottom:0;
+      left:0;
+      z-index:1;
+      transition:left .20s ease;
+    }
+
+    /* Drawer */
+    .overlay{
+      position:fixed; inset:0;
+      z-index:40;
+      background:rgba(15,23,42,.25);
+      opacity:0; pointer-events:none;
+      transition:opacity .18s ease;
+    }
+    .overlay.open{opacity:1; pointer-events:auto;}
+
+    .drawer{
+      position:fixed; top:64px; bottom:0; left:0;
+      width:min(520px, calc(100vw - 26px));
+      z-index:50;
+      transform:translateX(-106%);
+      transition:transform .20s ease;
+      background:var(--bg);
+      border-right:1px solid var(--border);
+      box-shadow:var(--shadow);
+      display:flex; flex-direction:column;
+    }
+    .drawer.open{transform:translateX(0);}
+
+    .drawerHeader{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 14px 10px 14px;
+    }
+    .drawerHeader h2{margin:0; font-size:16px; font-weight:800; letter-spacing:-.2px;}
+    .drawerBody{
+      padding:12px 14px 18px 14px;
+      overflow-y:auto;
+      overflow-x:hidden;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      align-items:stretch;
+    }
+    /* Prevent scrollbar from shifting content */
+    @supports (overflow-y: overlay) {
+      .drawerBody {
+        overflow-y: overlay;
+      }
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:0 2px 14px rgba(15,23,42,.05);
+      width:100%;
+    }
+    .cardHead{
+      padding:14px var(--card-padding);
+      min-height:56px;
+      font-weight:800;
+      letter-spacing:-.2px;
+      font-size:14px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      user-select:none;
+      transition:background .12s ease;
+      box-sizing:border-box;
+    }
+    .cardHead .chevron{
+      transition:transform .2s ease;
+      color:var(--muted);
+    }
+    .card.expanded .cardHead .chevron{
+      transform:rotate(180deg);
+    }
+    .cardBody{
+      padding:0 var(--card-padding) 16px var(--card-padding);
+      display:none;
+      box-sizing:border-box;
+    }
+    .card.expanded .cardBody{
+      display:block;
+    }
+
+    label{display:block; color:var(--muted); font-size:12px; margin-bottom:8px;}
+    input[type="text"], input[type="number"]:not(.settingInput){
+      width:100%;
+      padding:14px 14px;
+      border-radius:16px;
+      border:1px solid var(--border);
+      background:var(--bg);
+      color:var(--text);
+      outline:none;
+    }
+    input[type="text"]:focus, input[type="number"]:not(.settingInput):focus{
+      border-color:#c7d2fe;
+      box-shadow:0 0 0 4px rgba(99,102,241,.12);
+      background:var(--card);
+    }
+
+    .btnRow{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
+    .btn{
+      height:44px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:650;
+      font-size:13px;
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:8px;
+      box-shadow:0 2px 10px rgba(15,23,42,.04);
+      transition: transform .12s ease, background .1s ease, box-shadow .1s ease;
+    }
+    .btn:hover{transform:translateY(-1px);}
+    .btn:active{
+      transform:translateY(1px);
+      box-shadow:0 1px 4px rgba(15,23,42,.08);
+      background:#f1f5f9;
+    }
+    [data-theme="dark"] .btn:active{
+      background:#334155;
+    }
+    .btn.primary:active{
+      background:#c7d2fe;
+    }
+    [data-theme="dark"] .btn.primary:active{
+      background:#4338ca;
+    }
+    .btn.danger:active{
+      background:#fecdd3;
+    }
+    [data-theme="dark"] .btn.danger:active{
+      background:#9f1239;
+    }
+    .btn.primary{
+      background:#eef2ff;
+      border-color:#c7d2fe;
+      color:#1e40af;
+    }
+    [data-theme="dark"] .btn.primary{
+      background:#3730a3;
+      border-color:#4f46e5;
+      color:#e0e7ff;
+    }
+    .btn.danger{
+      background:#fff1f2;
+      border-color:#fecdd3;
+      color:#9f1239;
+    }
+    [data-theme="dark"] .btn.danger{
+      background:#7f1d1d;
+      border-color:#b91c1c;
+      color:#fecaca;
+    }
+
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .progressContainer{
+      display:none;
+      margin-top:16px;
+      padding:14px 16px;
+      background:var(--bg);
+      border:1px solid var(--border);
+      border-radius:16px;
+    }
+    .progressContainer.active{
+      display:block;
+    }
+    .progressLabel{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:10px;
+      font-size:13px;
+      font-weight:600;
+    }
+    .progressLabel .status{
+      color:var(--muted);
+      font-weight:500;
+    }
+    .progressBar{
+      height:8px;
+      background:#e5e7eb;
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .progressFill{
+      height:100%;
+      background:linear-gradient(90deg, #3b82f6, #6366f1);
+      border-radius:999px;
+      transition:width .3s ease;
+      position:relative;
+    }
+    .progressFill::after{
+      content:'';
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      background:linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation:shimmer 1.5s infinite;
+    }
+    @keyframes shimmer{
+      0%{transform:translateX(-100%);}
+      100%{transform:translateX(100%);}
+    }
+    .miniProgress{
+      display:none;
+      width:80px;
+      height:6px;
+      background:#e5e7eb;
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .miniProgress.active{
+      display:block;
+    }
+    .miniProgressFill{
+      height:100%;
+      background:linear-gradient(90deg, #3b82f6, #6366f1);
+      border-radius:999px;
+      transition:width .3s ease;
+      position:relative;
+    }
+    .miniProgressFill::after{
+      content:'';
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      background:linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      animation:shimmer 1.5s infinite;
+    }
+    [data-theme="dark"] .miniProgress{
+      background:#334155;
+    }
+    pre{
+      margin:10px 0 0 0;
+      padding:12px;
+      border-radius:18px;
+      border:1px solid var(--border);
+      background:var(--bg);
+      font-size:12px;
+      color:var(--text);
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:220px;
+      overflow:auto;
+    }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:11px;
+      color:var(--muted);
+    }
+
+    /* List */
+    .list{border-top:1px solid var(--border); margin-top:16px;}
+    .row{
+      display:flex; align-items:flex-start; justify-content:space-between;
+      gap:12px;
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+      cursor:pointer;
+      background:var(--card);
+      transition:background .15s ease;
+    }
+    .row:hover{background:#fafafa;}
+    .row.selected{
+      background:#eef2ff;
+      border-left:3px solid #6366f1;
+    }
+    [data-theme="dark"] .row:hover{background:#1e293b;}
+    [data-theme="dark"] .row.selected{
+      background:#312e81;
+      border-left:3px solid #818cf8;
+    }
+    .row:last-child{border-bottom:none;}
+    .rowLeft{display:flex; align-items:flex-start; gap:12px; min-width:0;}
+    .rowIcon{
+      width:34px; height:34px; border-radius:12px;
+      background:var(--bg);
+      border:1px solid var(--border);
+      display:grid; place-items:center;
+      color:#6b7280;
+      flex:0 0 auto;
+      margin-top:2px;
+    }
+    .rowText{min-width:0;}
+    .rowTitle{
+      font-weight:800; font-size:13px; letter-spacing:-.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .rowSub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.25;
+      overflow:hidden;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+    }
+    .rowRight{text-align:right; min-width:34%; max-width:42%;}
+    .rowValue{
+      font-weight:700; font-size:13px; color:var(--text);
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .rowValue.muted{color:var(--muted); font-weight:650;}
+    .rowMeta{margin-top:6px; display:flex; justify-content:flex-end; gap:8px; align-items:center; flex-wrap:wrap;}
+    .statusPill{
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--muted);
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+    }
+    .statusPill.ok{border-color:#bbf7d0; background:#f0fdf4; color:#166534;}
+    .statusPill.no{border-color:#fecaca; background:#fef2f2; color:#991b1b;}
+    .statusPill.pending{border-color:var(--border); background:var(--card); color:var(--muted);}
+    [data-theme="dark"] .statusPill.ok{border-color:#166534; background:#14532d; color:#bbf7d0;}
+    [data-theme="dark"] .statusPill.no{border-color:#991b1b; background:#7f1d1d; color:#fecaca;}
+
+    .chev{color:#9ca3af; margin-left:10px; flex:0 0 auto; margin-top:2px;}
+
+    .list > .expanded{
+      padding:0 16px 14px 62px;
+      background:var(--card);
+      border-bottom:1px solid var(--border);
+    }
+    .warn{margin-top:8px; color:#991b1b; font-size:12px; line-height:1.35;}
+    [data-theme="dark"] .warn{color:#fca5a5;}
+
+    /* Map popup */
+    .ol-popup{
+      position:absolute;
+      background:var(--card);
+      color:var(--text);
+      padding:10px 14px;
+      border-radius:10px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.15);
+      border:1px solid var(--border);
+      white-space:nowrap;
+    }
+
+    /* OpenLayers tweaks */
+    .ol-control button{
+      border-radius:12px !important;
+      border:1px solid var(--border) !important;
+      box-shadow:0 2px 10px rgba(15,23,42,.06) !important;
+    }
+    .ol-attribution{
+      background:rgba(255,255,255,.9) !important;
+      border:1px solid var(--border) !important;
+      border-radius:14px !important;
+      padding:6px 10px !important;
+      box-shadow:0 2px 12px rgba(15,23,42,.06) !important;
+    }
+    .ol-attribution ul{
+      color:var(--muted) !important;
+    }
+    .ol-control.streetview-control button{
+      background:var(--card) !important;
+      border:1px solid var(--border) !important;
+      border-radius:12px !important;
+      box-shadow:0 2px 10px rgba(15,23,42,.06) !important;
+      transition:background .15s ease, color .15s ease;
+    }
+    .ol-control.streetview-control button:hover{
+      background:#f1f5f9 !important;
+    }
+    [data-theme="dark"] .ol-control.streetview-control button:hover{
+      background:#334155 !important;
+    }
+
+    /* Desktop: drawer pinned by default but still closable */
+    @media (min-width:1180px){
+      .drawer.open{transform:translateX(0);}
+      .overlay{display:none;}
+      }
+
+    /* Make cards scrollable inside drawer */
+    .drawerBody{min-height:0;}
+    .card{min-height:0;}
+
+    /* Accordion cards */
+    .card{
+      display:flex;
+      flex-direction:column;
+      flex:0 0 auto;
+    }
+
+    .card.expanded .cardBody{
+      max-height:none;
+    }
+
+    /* Firms card specific - make list scrollable */
+    #firmsCard.expanded .cardBody{
+      max-height:60vh;
+      display:flex;
+      flex-direction:column;
+      overflow-y:auto;
+      overflow-x:hidden;
+    }
+    #firmsCard.expanded .cardBody > *:not(#rows){
+      flex:0 0 auto;
+    }
+    #rows{
+      flex:1 1 auto;
+      overflow:auto;
+      min-height:0;
+    }
+
+
+
+    /* Map layout: fill width when menu closed; shift only when drawer open (desktop) */
+    #map{ left:0 !important; right:0; transition:left .20s ease; }
+    @media (min-width:1180px){
+      body.drawer-open #map{ left:520px !important; }
+    }
+
+    /* Geocoding action row (moved from top-right) */
+    .geoActionsRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:12px;
+      flex-wrap:wrap;
+    }
+    .geoActionsRow .countChips{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    /* Toggle switch */
+    .settingRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:16px 0;
+      gap:20px;
+      margin:0;
+    }
+    .settingRow > div{
+      margin:0;
+      padding:0;
+    }
+    .settingLabelRow{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .infoIcon{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:16px;
+      height:16px;
+      border-radius:50%;
+      background:var(--border);
+      color:var(--muted);
+      font-size:10px;
+      font-weight:700;
+      cursor:help;
+      position:relative;
+    }
+    .infoIcon:hover .tooltip{
+      display:block;
+    }
+    .tooltip{
+      display:none;
+      position:absolute;
+      bottom:calc(100% + 8px);
+      left:50%;
+      transform:translateX(-50%);
+      background:var(--text);
+      color:var(--bg);
+      padding:8px 12px;
+      border-radius:8px;
+      font-size:12px;
+      font-weight:500;
+      white-space:normal;
+      width:200px;
+      text-align:center;
+      z-index:100;
+      box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    }
+    .tooltip::after{
+      content:'';
+      position:absolute;
+      top:100%;
+      left:50%;
+      transform:translateX(-50%);
+      border:6px solid transparent;
+      border-top-color:var(--text);
+    }
+    .settingInput{
+      width:46px;
+      min-width:46px;
+      max-width:46px;
+      padding:8px 4px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:var(--bg);
+      color:var(--text);
+      font-size:14px;
+      font-weight:600;
+      text-align:center;
+      flex-shrink:0;
+    }
+    .settingInput:focus{
+      outline:none;
+      border-color:#c7d2fe;
+      box-shadow:0 0 0 3px rgba(99,102,241,.12);
+    }
+    .settingRow:not(:last-child){
+      border-bottom:1px solid var(--border);
+    }
+    .settingRow:first-child{
+      padding-top:0;
+    }
+    .settingLabel{
+      font-size:14px;
+      font-weight:600;
+      color:var(--text);
+      margin:0;
+      padding:0;
+    }
+    .settingDesc{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:2px;
+    }
+    .toggle{
+      position:relative;
+      width:48px;
+      height:26px;
+      flex-shrink:0;
+    }
+    .toggle input{
+      opacity:0;
+      width:0;
+      height:0;
+    }
+    .toggleSlider{
+      position:absolute;
+      cursor:pointer;
+      top:0; left:0; right:0; bottom:0;
+      background:#cbd5e1;
+      border-radius:999px;
+      transition:background .2s;
+    }
+    .toggleSlider::before{
+      position:absolute;
+      content:"";
+      height:20px;
+      width:20px;
+      left:3px;
+      bottom:3px;
+      background:white;
+      border-radius:999px;
+      transition:transform .2s;
+      box-shadow:0 2px 4px rgba(0,0,0,.15);
+    }
+    .toggle input:checked + .toggleSlider{
+      background:#2563eb;
+    }
+    .toggle input:checked + .toggleSlider::before{
+      transform:translateX(22px);
+    }
+    </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="leftGroup">
+      <button id="menuBtn" class="iconBtn" aria-label="Open menu" title="Menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <div class="titleBlock">
+        <div class="title">Japanese Venture Capital Firms</div>
+      </div>
+    </div>
+
+    <div class="rightGroup">
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="mapError" style="display:none; position:fixed; top:64px; left:0; right:0; bottom:0; background:var(--bg); z-index:1; justify-content:center; align-items:center;">
+    <div style="max-width:500px; background:var(--card); border:1px solid var(--border); border-radius:22px; padding:32px; box-shadow:0 12px 28px rgba(15,23,42,.08); text-align:center;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin-bottom:16px; color:var(--muted);">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h2 style="margin:0 0 12px 0; font-size:18px; font-weight:800;">Map Library Could Not Load</h2>
+      <p style="margin:0 0 20px 0; color:var(--muted); font-size:14px; line-height:1.5;">
+        This interactive map requires the OpenLayers library, which can't be loaded in this preview environment.
+      </p>
+      <p style="margin:0; color:var(--muted); font-size:14px; line-height:1.5;">
+        <strong>To use the map:</strong> Download this file and open it directly in your browser.
+      </p>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay"></div>
+
+  <aside id="drawer" class="drawer" aria-label="Menu drawer">
+    <div class="drawerHeader">
+      <h2>Menu</h2>
+      <button id="closeBtn" class="iconBtn" aria-label="Close menu" title="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="drawerBody">
+      <section class="card" id="settingsCard">
+        <div class="cardHead">
+          <span>Settings</span>
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="cardBody">
+          <div class="settingRow">
+            <div>
+              <div class="settingLabel">Dark Mode</div>
+              <div class="settingDesc">Toggle dark theme</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="darkModeToggle">
+              <span class="toggleSlider"></span>
+            </label>
+          </div>
+
+          <div class="settingRow">
+            <div>
+              <div class="settingLabel">Cluster Pins</div>
+              <div class="settingDesc">Group nearby pins on map</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="clusterToggle">
+              <span class="toggleSlider"></span>
+            </label>
+          </div>
+
+          <div class="settingRow">
+            <div>
+              <div class="settingLabelRow">
+                <span class="settingLabel">Parallel Requests</span>
+                <span class="infoIcon">i<span class="tooltip">Number of geocoding requests to run simultaneously</span></span>
+              </div>
+              <div class="settingDesc">Batch size for geocoding</div>
+            </div>
+            <input type="number" id="batchSize" class="settingInput" min="1" max="50" value="4" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="geocodingCard">
+        <div class="cardHead">
+          <div style="display:flex; align-items:center; gap:12px; flex:1;">
+            <span>Geocoding</span>
+            <div id="miniProgress" class="miniProgress">
+              <div id="miniProgressFill" class="miniProgressFill" style="width:0%"></div>
+            </div>
+          </div>
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="cardBody">
+          <div class="btnRow">
+            <button id="importCSV" class="btn">Import CSV</button>
+            <button id="downloadCSV" class="btn">Download CSV</button>
+          </div>
+          <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
+
+          <div style="margin-top:18px;">
+            <label for="endpoint">Geocoder endpoint</label>
+            <input id="endpoint" type="text" value="https://nominatim.openstreetmap.org/search" />
+          </div>
+
+          <div style="margin-top:18px;">
+            <label for="delay">Delay between batches (ms)</label>
+            <input id="delay" type="number" min="50" step="50" value="100" />
+          </div>
+
+          <div class="btnRow">
+            <button id="start" class="btn primary">Start / Restart</button>
+            <button id="stop" class="btn">Stop</button>
+          </div>
+
+          <div id="progressContainer" class="progressContainer">
+            <div class="progressLabel">
+              <span>Geocoding in progress...</span>
+              <span id="progressStatus" class="status">0 / 0</span>
+            </div>
+            <div class="progressBar">
+              <div id="progressFill" class="progressFill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div class="btnRow">
+            <button id="test" class="btn">Run Test</button>
+            <button id="clearCache" class="btn danger">Clear Cache</button>
+          </div>
+
+          <div class="hint">
+            If you see lots of failures, click a firm to expand and inspect <span class="mono">HTTP status</span> + the last URL.
+            <br/><span class="mono">HTTP 429</span> → rate limit (increase delay). <span class="mono">HTTP 403</span> or HTML → blocked (try different network / remove VPN / use another geocoder).
+          </div>
+
+          <pre id="testOut">Test output will appear here.</pre>
+        </div>
+      </section>
+
+      <section class="card" id="firmsCard">
+        <div class="cardHead" style="gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px; flex:1;">
+            <span>Firms</span>
+            <div class="countChips">
+              <div class="chip"><span class="dot ok"></span><span id="okCount">0</span></div>
+              <div class="chip"><span class="dot no"></span><span id="noCount">0</span></div>
+              <div class="chip"><span class="dot pending"></span><span id="pendingCount">0</span></div>
+            </div>
+          </div>
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="cardBody" style="padding-bottom:12px;">
+          <label for="filter">Search</label>
+          <input id="filter" type="text" placeholder="Type a firm name, city, postal code..." />
+
+          <div id="rows" class="list"></div>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
+
+  <script>
+    const FIRMS = [
+      {"name":"Globis Capital Partners","address":"9F Sumitomo Fudosan Kojimachi Bldg., 5-1 Niban-cho, Chiyoda-ku, Tokyo 102-0084, Japan","website":""},
+      {"name":"CyberAgent Ventures (CyberAgent Capital)","address":"5F Abema Towers, 40-1 Udagawacho, Shibuya-ku, Tokyo 150-0042, Japan","website":""},
+      {"name":"Strive (GREE Ventures)","address":"Holland Hills Mori Tower RoP #1203, 5-11-1 Toranomon, Minato-ku, Tokyo 105-0001, Japan","website":""},
+      {"name":"Rebright Partners","address":"2F Nittochi Building, 1-4-1 Kasumigaseki, Chiyoda-ku, Tokyo 100-0013, Japan","website":""},
+      {"name":"Drone Fund","address":"Azabudai Hills Garden Plaza B 4F, 5-9-1 Toranomon, Minato-ku, Tokyo 105-0001, Japan","website":""},
+      {"name":"Incubate Fund","address":"Azabudai Hills Garden Plaza B 5F, 5-9-1 Toranomon, Minato-ku, Tokyo 105-0001, Japan","website":""},
+      {"name":"ITOCHU Technology Ventures (ITV)","address":"Itochu Building 4F, 2-5-1 Kita-Aoyama, Minato-ku, Tokyo 107-0061, Japan","website":""},
+      {"name":"DG Incubation (Digital Garage)","address":"Digital Gate Building, 3-5-7 Ebisu Minami, Shibuya-ku, Tokyo 150-0022, Japan","website":""},
+      {"name":"Mistletoe","address":"1-1 Kanda-Awajicho, Chiyoda-ku, Tokyo 101-0063, Japan","website":""},
+      {"name":"Monex Ventures","address":"ARK Mori Building 25F, 1-12-32 Akasaka, Minato-ku, Tokyo 107-6025, Japan","website":""},
+      {"name":"Mitsubishi UFJ Capital","address":"Nihonbashi Plaza Building 7F, 2-3-4 Nihonbashi, Chuo-ku, Tokyo 103-0027, Japan","website":""},
+      {"name":"Rakuten Ventures","address":"Rakuten Crimson House, 1-14-1 Tamagawa, Setagaya-ku, Tokyo 158-0094, Japan","website":""},
+      {"name":"SBI Investment","address":"Izumi Garden Tower 19F, 1-6-1 Roppongi, Minato-ku, Tokyo 106-6019, Japan","website":""},
+      {"name":"JAFCO Group","address":"Toranomon Hills Mori Tower 24F, 1-23-1 Toranomon, Minato-ku, Tokyo 105-6324, Japan","website":""},
+      {"name":"Spiral Ventures (Spiral Capital)","address":"Azabudai Hills Garden Plaza B 504, 5-9-1 Toranomon, Minato-ku, Tokyo 105-0001, Japan","website":""},
+      {"name":"Abies Ventures","address":"Landwork Aoyama Building 2F, 2-7-26 Kita-Aoyama, Minato-ku, Tokyo 107-0061, Japan","website":""},
+      {"name":"ANRI","address":"Roppongi Hills Mori Tower 15F, 6-10-1 Roppongi, Minato-ku, Tokyo 106-6115, Japan","website":""},
+      {"name":"UTEC (University of Tokyo Edge Capital Partners)","address":"South Clinical Research Bldg. 3F, 7-3-1 Hongo, Bunkyo-ku, Tokyo 113-8485, Japan","website":""},
+      {"name":"Beyond Next Ventures","address":"MFPR Nihonbashi Honcho Building 3F, 3-7-2 Nihonbashi-Honcho, Chuo-ku, Tokyo 103-0023, Japan","website":""},
+      {"name":"Leave a Nest Capital","address":"Iidabashi Miyuki Building 5F, 1-4 Shimomiyabi-cho, Shinjuku-ku, Tokyo 162-0822, Japan","website":""}
+    ];
+
+    const drawer = document.getElementById('drawer');
+    const overlay = document.getElementById('overlay');
+    const menuBtn = document.getElementById('menuBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const clusterToggle = document.getElementById('clusterToggle');
+
+    function openDrawer(){
+      drawer.classList.add('open');
+      overlay.classList.add('open');
+      document.body.classList.add('drawer-open');
+    }
+    function closeDrawer(){
+      drawer.classList.remove('open');
+      overlay.classList.remove('open');
+      document.body.classList.remove('drawer-open');
+    }
+    function toggleDrawer(){
+      if(drawer.classList.contains('open')) closeDrawer();
+      else openDrawer();
+    }
+    menuBtn.addEventListener('click', toggleDrawer);
+    closeBtn.addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeDrawer(); });
+
+    // Accordion behavior for cards
+    const allCards = document.querySelectorAll('.card');
+
+    // Ensure all cards start collapsed
+    allCards.forEach(c => c.classList.remove('expanded'));
+
+    allCards.forEach(card => {
+      const cardHead = card.querySelector('.cardHead');
+      if(cardHead){
+        cardHead.addEventListener('click', (e) => {
+          // Prevent toggle switch clicks from triggering accordion
+          if(e.target.closest('.toggle')) return;
+
+          const isExpanded = card.classList.contains('expanded');
+
+          // Collapse all cards
+          allCards.forEach(c => c.classList.remove('expanded'));
+
+          // Toggle clicked card (expand if it was collapsed)
+          if(!isExpanded){
+            card.classList.add('expanded');
+          }
+        });
+      }
+    });
+
+    // Settings persistence
+    const SETTINGS_KEY = "jvc_map_settings";
+    function loadSettings(){
+      try {
+        return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{"darkMode":false,"clustering":false}');
+      } catch {
+        return {darkMode:false, clustering:false};
+      }
+    }
+    function saveSettings(settings){
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    // Dark mode toggle
+    let setMapDarkMode = null; // Will be set when map is initialized
+    
+    function setDarkMode(enabled){
+      if(enabled){
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      const settings = loadSettings();
+      settings.darkMode = enabled;
+      saveSettings(settings);
+      
+      // Update map tiles if map is initialized
+      if(setMapDarkMode) setMapDarkMode(enabled);
+    }
+
+    darkModeToggle.addEventListener('change', (e)=>{
+      setDarkMode(e.target.checked);
+    });
+
+    // Load saved settings
+    const savedSettings = loadSettings();
+    darkModeToggle.checked = savedSettings.darkMode;
+    setDarkMode(savedSettings.darkMode);
+    clusterToggle.checked = savedSettings.clustering;
+
+    // Start with menu open by default
+    openDrawer();
+
+    // Check if OpenLayers loaded
+    if (typeof ol === 'undefined') {
+      document.getElementById('map').style.display = 'none';
+      document.getElementById('mapError').style.display = 'flex';
+      // Continue with non-map functionality (drawer, render, etc.)
+    }
+
+    // Initialize OpenLayers map (only if library loaded)
+    let vectorSource, clusterSource, vectorLayer, clusterLayer, map, popup, popupContainer;
+    
+    if (typeof ol !== 'undefined') {
+      vectorSource = new ol.source.Vector();
+      clusterSource = new ol.source.Cluster({
+        distance: 40,
+        source: vectorSource
+      });
+
+    const styleCache = {};
+
+    // Single pin style
+    const singlePinStyle = new ol.style.Style({
+      image: new ol.style.Circle({
+        radius: 8,
+        fill: new ol.style.Fill({ color: '#2563eb' }),
+        stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+      })
+    });
+
+    // Selected pin style
+    const selectedPinStyle = new ol.style.Style({
+      image: new ol.style.Circle({
+        radius: 12,
+        fill: new ol.style.Fill({ color: '#dc2626' }),
+        stroke: new ol.style.Stroke({ color: 'white', width: 3 })
+      })
+    });
+
+    // Style function for vector layer
+    function pinStyleFunction(feature){
+      if(feature.get('selected')){
+        return selectedPinStyle;
+      }
+      return singlePinStyle;
+    }
+
+    // Cluster style function
+    function clusterStyleFunction(feature) {
+      const features = feature.get('features');
+      const size = features.length;
+      
+      // Check if any feature in cluster is selected
+      const hasSelected = features.some(f => f.get('selected'));
+      
+      if(size === 1 && hasSelected){
+        return selectedPinStyle;
+      }
+      
+      let style = styleCache[size];
+      if (!style) {
+        if (size > 1) {
+          style = new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 15 + Math.min(size / 2, 15),
+              fill: new ol.style.Fill({ color: 'rgba(37, 99, 235, 0.8)' }),
+              stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+            }),
+            text: new ol.style.Text({
+              text: size.toString(),
+              fill: new ol.style.Fill({ color: 'white' }),
+              font: 'bold 12px sans-serif'
+            })
+          });
+        } else {
+          style = singlePinStyle;
+        }
+        styleCache[size] = style;
+      }
+      return style;
+    }
+
+    const vectorLayer = new ol.layer.Vector({
+      source: vectorSource,
+      style: pinStyleFunction
+    });
+
+    const clusterLayer = new ol.layer.Vector({
+      source: clusterSource,
+      style: clusterStyleFunction
+    });
+
+    // Tile sources for light/dark mode
+    const lightTileSource = new ol.source.OSM();
+    const darkTileSource = new ol.source.XYZ({
+      url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',
+      attributions: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    });
+
+    const tileLayer = new ol.layer.Tile({
+      source: savedSettings.darkMode ? darkTileSource : lightTileSource
+    });
+
+    const map = new ol.Map({
+      target: 'map',
+      layers: [tileLayer],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([139.6503, 35.6762]),
+        zoom: 11
+      })
+    });
+
+    // Street View control
+    let streetViewMode = false;
+    const streetViewBtn = document.createElement('button');
+    streetViewBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="8" r="4"/>
+      <path d="M12 12v8"/>
+      <path d="M8 20h8"/>
+    </svg>`;
+    streetViewBtn.title = 'Street View - Click to enable, then click on map';
+    streetViewBtn.style.cssText = 'width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+    
+    const streetViewControl = new ol.control.Control({
+      element: (function(){
+        const div = document.createElement('div');
+        div.className = 'ol-control ol-unselectable streetview-control';
+        div.style.cssText = 'top:100px;left:.5em;';
+        div.appendChild(streetViewBtn);
+        return div;
+      })()
+    });
+    map.addControl(streetViewControl);
+
+    streetViewBtn.addEventListener('click', ()=>{
+      streetViewMode = !streetViewMode;
+      streetViewBtn.style.background = streetViewMode ? '#2563eb' : '';
+      streetViewBtn.style.color = streetViewMode ? 'white' : '';
+      map.getTargetElement().style.cursor = streetViewMode ? 'crosshair' : '';
+    });
+
+    setMapDarkMode = function(isDark){
+      tileLayer.setSource(isDark ? darkTileSource : lightTileSource);
+    };
+
+    // Clustering toggle
+    let clusteringEnabled = savedSettings.clustering;
+    function setClustering(enabled){
+      map.getLayers().clear();
+      map.addLayer(tileLayer);
+
+      if(enabled){
+        map.addLayer(clusterLayer);
+      } else {
+        map.addLayer(vectorLayer);
+      }
+
+      clusteringEnabled = enabled;
+      const settings = loadSettings();
+      settings.clustering = enabled;
+      saveSettings(settings);
+    }
+
+    clusterToggle.addEventListener('change', (e)=>{
+      setClustering(e.target.checked);
+    });
+
+    // Initialize with saved clustering preference
+    setClustering(clusteringEnabled);
+
+    // Popup overlay
+    popupContainer = document.createElement('div');
+    popupContainer.className = 'ol-popup';
+    document.body.appendChild(popupContainer);
+
+    popup = new ol.Overlay({
+      element: popupContainer,
+      positioning: 'bottom-center',
+      stopEvent: false,
+      offset: [0, -10]
+    });
+    map.addOverlay(popup);
+
+    // Click handler for popup
+    map.on('click', function(evt) {
+      // Handle Street View mode
+      if(streetViewMode){
+        const coords = ol.proj.toLonLat(evt.coordinate);
+        const lat = coords[1];
+        const lon = coords[0];
+        window.open(`https://www.google.com/maps/@${lat},${lon},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
+        streetViewMode = false;
+        streetViewBtn.style.background = '';
+        streetViewBtn.style.color = '';
+        map.getTargetElement().style.cursor = '';
+        return;
+      }
+
+      const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+        return feature;
+      });
+
+      if (feature) {
+        const features = feature.get('features');
+        if (features && features.length === 1) {
+          const props = features[0].getProperties();
+          popupContainer.innerHTML = props.popupContent;
+          popup.setPosition(evt.coordinate);
+          
+          // Select the firm and scroll to row
+          if(props.firmId){
+            selectFirm(props.firmId);
+            
+            // Expand the Firms card
+            const firmsCard = document.getElementById('firmsCard');
+            if(firmsCard && !firmsCard.classList.contains('expanded')){
+              document.querySelectorAll('.card').forEach(c => c.classList.remove('expanded'));
+              firmsCard.classList.add('expanded');
+            }
+            
+            render();
+            
+            // Scroll to the row after a small delay
+            setTimeout(() => {
+              const rowEl = document.getElementById(props.firmId);
+              if(rowEl){
+                rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+          }
+        } else if (features && features.length > 1) {
+          popup.setPosition(undefined);
+          const extent = ol.extent.createEmpty();
+          features.forEach(f => ol.extent.extend(extent, f.getGeometry().getExtent()));
+          map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 500, maxZoom: 15 });
+        }
+      } else {
+        popup.setPosition(undefined);
+      }
+    });
+
+    // Change cursor on hover
+    map.on('pointermove', function(evt) {
+      if(streetViewMode) return; // Keep crosshair cursor in Street View mode
+      const hit = map.hasFeatureAtPixel(evt.pixel);
+      map.getTargetElement().style.cursor = hit ? 'pointer' : '';
+    });
+    } // End of OpenLayers initialization block
+
+    const elRows = document.getElementById('rows');
+    const elFilter = document.getElementById('filter');
+    const elImportCSV = document.getElementById('importCSV');
+    const elDownloadCSV = document.getElementById('downloadCSV');
+    const elCsvFileInput = document.getElementById('csvFileInput');
+    const elEndpoint = document.getElementById('endpoint');
+    const elDelay = document.getElementById('delay');
+    const elBatchSize = document.getElementById('batchSize');
+    const elStart = document.getElementById('start');
+    const elStop = document.getElementById('stop');
+    const elClearCache = document.getElementById('clearCache');
+    const elTest = document.getElementById('test');
+    const elTestOut = document.getElementById('testOut');
+    const elProgressContainer = document.getElementById('progressContainer');
+    const elProgressStatus = document.getElementById('progressStatus');
+    const elProgressFill = document.getElementById('progressFill');
+    const elMiniProgress = document.getElementById('miniProgress');
+    const elMiniProgressFill = document.getElementById('miniProgressFill');
+
+    const CACHE_KEY = "jvc_geocode_cache_captured_style_v1";
+    function loadCache(){ try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); } catch { return {}; } }
+    function saveCache(cache){ localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); }
+    function clearCache(){ localStorage.removeItem(CACHE_KEY); }
+    function cacheKeyFor(item){ return (item.name + "||" + item.address).toLowerCase(); }
+
+    const state = FIRMS.map((f, idx) => ({
+      ...f,
+      id: `firm-${idx}`,
+      status: 'pending',
+      lat: null,
+      lon: null,
+      resolved: '',
+      error: '',
+      lastQuery: '',
+      lastStatus: '',
+      _expanded: false,
+      _selected: false
+    }));
+
+    let selectedFirmId = null;
+
+    function selectFirm(firmId){
+      selectedFirmId = firmId;
+      state.forEach(x => x._selected = (x.id === firmId));
+      
+      // Highlight marker on map
+      if(typeof ol !== 'undefined' && vectorSource){
+        vectorSource.getFeatures().forEach(f => {
+          f.set('selected', f.get('firmId') === firmId);
+        });
+        vectorSource.changed();
+        if(clusterSource) clusterSource.changed();
+      }
+    }
+
+    function updateCounts(){
+      document.getElementById('okCount').textContent = state.filter(x=>x.status==='ok').length;
+      document.getElementById('noCount').textContent = state.filter(x=>x.status==='no').length;
+      document.getElementById('pendingCount').textContent = state.filter(x=>x.status==='pending' || x.status==='queued').length;
+    }
+
+    function escapeHtml(s){
+      return String(s||'')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#39;");
+    }
+
+    function firmIconSvg(){
+      return `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M10 21V9a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M8 7h4M8 11h4M8 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>`;
+    }
+
+    function statusPill(status){
+      if(status==='ok') return '<span class="statusPill ok"><span class="dot ok"></span>Geocoded</span>';
+      if(status==='no') return '<span class="statusPill no"><span class="dot no"></span>Not found</span>';
+      if(status==='queued') return '<span class="statusPill pending"><span class="dot pending"></span>Pending</span>';
+      return '';
+    }
+
+    function render(){
+      const q = (elFilter.value||'').toLowerCase().trim();
+      elRows.innerHTML = '';
+
+      const filtered = state.filter(x =>
+        !q ||
+        x.name.toLowerCase().includes(q) ||
+        (x.address||'').toLowerCase().includes(q) ||
+        (x.resolved||'').toLowerCase().includes(q)
+      );
+
+      for(const x of filtered){
+        const row = document.createElement('div');
+        row.className = 'row' + (x._selected ? ' selected' : '');
+        row.id = x.id;
+
+        const displayResolved = x.resolved
+          ? x.resolved
+          : (x.status==='no' ? 'Not found (click to expand)' : (x.status==='queued' ? 'Processing...' : '—'));
+
+        row.innerHTML = `
+          <div class="rowLeft">
+            <div class="rowIcon">${firmIconSvg()}</div>
+            <div class="rowText">
+              <div class="rowTitle">${escapeHtml(x.name)}</div>
+              <div class="rowSub">${escapeHtml(x.address)}</div>
+            </div>
+          </div>
+          <div class="rowRight">
+            <div class="rowValue ${x.status==='pending' ? 'muted' : ''}">${escapeHtml(displayResolved)}</div>
+            <div class="rowMeta">
+              ${statusPill(x.status)}
+            </div>
+          </div>
+          <div class="chev">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        `;
+
+        row.addEventListener('click', ()=>{ 
+          x._expanded = !x._expanded; 
+          selectFirm(x.id);
+          
+          // Show popup on map if firm has coordinates
+          if(x.lat && x.lon && typeof ol !== 'undefined' && map && popup && popupContainer){
+            const coord = ol.proj.fromLonLat([x.lon, x.lat]);
+            popupContainer.innerHTML = `<div style="font-weight:700;font-size:14px;">${escapeHtml(x.name)}</div>`;
+            popup.setPosition(coord);
+            map.getView().animate({center: coord, duration: 300});
+          }
+          
+          render(); 
+        });
+        elRows.appendChild(row);
+
+        if(x._expanded){
+          const exp = document.createElement('div');
+          exp.className = 'expanded';
+          const latlon = (x.lat && x.lon) ? `<div class="mono">lat: ${x.lat.toFixed(6)}, lon: ${x.lon.toFixed(6)}</div>` : '';
+          const meta = (x.lastStatus || x.lastQuery) ? `
+            <div class="mono" style="margin-top:8px;">lastStatus: ${escapeHtml(x.lastStatus || '')}</div>
+            <div class="mono" style="margin-top:6px; word-break:break-word;">lastQuery: ${x.lastQuery ? '<a target="_blank" rel="noopener" href="'+escapeHtml(x.lastQuery)+'">'+escapeHtml(x.lastQuery)+'</a>' : ''}</div>` : '';
+          const warn = x.error ? `<div class="warn">⚠ ${escapeHtml(x.error)}</div>` : '';
+          exp.innerHTML = `
+            <div class="mono" style="margin-top:10px;"><b>Resolved:</b> ${escapeHtml(x.resolved || '')}</div>
+            ${latlon}
+            ${meta}
+            ${warn}
+          `;
+          elRows.appendChild(exp);
+        }
+      }
+
+      updateCounts();
+    }
+    elFilter.addEventListener('input', render);
+
+    function toCSV(rows){
+      const header = ['name','input_address','resolved_address','latitude','longitude','website','last_status','last_query','error'];
+      const lines = [header.join(',')];
+      for(const r of rows){
+        const vals = [r.name, r.address, r.resolved||'', r.lat ?? '', r.lon ?? '', r.website||'', r.lastStatus||'', r.lastQuery||'', r.error||'']
+          .map(v => '"' + String(v).replaceAll('"','""') + '"');
+        lines.push(vals.join(','));
+      }
+      return lines.join('\n');
+    }
+
+    function downloadText(filename, text, mime){
+      const blob = new Blob([text], {type:mime});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    elDownloadCSV.addEventListener('click', ()=> {
+      const header = ['name','address','website'];
+      const outLines = [header.join(',')];
+      for(const r of state){
+        const vals = [r.name, r.address, r.website||''].map(v => '"' + String(v).replaceAll('"','""') + '"');
+        outLines.push(vals.join(','));
+      }
+      downloadText('japanese_vc_firms.csv', outLines.join('\n'), 'text/csv;charset=utf-8;');
+    });
+
+    elImportCSV.addEventListener('click', ()=> {
+      elCsvFileInput.click();
+    });
+
+    elCsvFileInput.addEventListener('change', (e)=> {
+      const file = e.target.files[0];
+      if(!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (evt)=> {
+        const text = evt.target.result;
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if(lines.length < 2) {
+          alert('CSV file appears empty or has no data rows.');
+          return;
+        }
+        
+        // Parse header
+        const header = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+        const nameIdx = header.findIndex(h => h === 'name');
+        const addressIdx = header.findIndex(h => h === 'address');
+        const websiteIdx = header.findIndex(h => h === 'website');
+        
+        if(nameIdx === -1 || addressIdx === -1) {
+          alert('CSV must have "name" and "address" columns.');
+          return;
+        }
+        
+        // Parse data rows
+        const newFirms = [];
+        for(let i = 1; i < lines.length; i++){
+          const cols = parseCSVLine(lines[i]);
+          const name = cols[nameIdx]?.trim();
+          const address = cols[addressIdx]?.trim();
+          const website = websiteIdx !== -1 ? (cols[websiteIdx]?.trim() || '') : '';
+          
+          if(name && address){
+            newFirms.push({
+              name,
+              address,
+              website,
+              status: 'pending',
+              lat: null,
+              lon: null,
+              resolved: '',
+              error: '',
+              lastQuery: '',
+              lastStatus: '',
+              _expanded: false
+            });
+          }
+        }
+        
+        if(newFirms.length === 0){
+          alert('No valid firms found in CSV.');
+          return;
+        }
+        
+        // Replace state with imported firms
+        state.length = 0;
+        state.push(...newFirms);
+        
+        // Clear markers
+        if(vectorSource) vectorSource.clear();
+        markerByKey.clear();
+        
+        // Apply any cached geocoding
+        applyCache();
+        render();
+        
+        alert(`Imported ${newFirms.length} firms.`);
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset so same file can be re-imported
+    });
+
+    // Simple CSV line parser (handles quoted fields)
+    function parseCSVLine(line){
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for(let i = 0; i < line.length; i++){
+        const char = line[i];
+        if(inQuotes){
+          if(char === '"'){
+            if(line[i+1] === '"'){
+              current += '"';
+              i++;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            current += char;
+          }
+        } else {
+          if(char === '"'){
+            inQuotes = true;
+          } else if(char === ','){
+            result.push(current);
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+      }
+      result.push(current);
+      return result;
+    }
+
+    const markerByKey = new Map();
+    function upsertMarker(item){
+      if (typeof ol === 'undefined' || !vectorSource) return;
+      
+      const key = cacheKeyFor(item);
+      if(markerByKey.has(key)){
+        vectorSource.removeFeature(markerByKey.get(key));
+        markerByKey.delete(key);
+      }
+      if(item.status!=='ok' || !item.lat || !item.lon) return;
+
+      const popupContent = `<div style="font-weight:700;font-size:14px;">${escapeHtml(item.name)}</div>`;
+
+      const marker = new ol.Feature({
+        geometry: new ol.geom.Point(ol.proj.fromLonLat([item.lon, item.lat])),
+        popupContent: popupContent,
+        name: item.name,
+        firmId: item.id,
+        selected: item._selected
+      });
+
+      vectorSource.addFeature(marker);
+      markerByKey.set(key, marker);
+    }
+
+    function applyCache(){
+      const cache = loadCache();
+      for(const item of state){
+        const key = cacheKeyFor(item);
+        if(cache[key] && cache[key].lat && cache[key].lon){
+          Object.assign(item, cache[key]);
+          item.status = 'ok';
+          item.error = '';
+          upsertMarker(item);
+        }
+      }
+    }
+
+    function normalizeAddress(addr){
+      let s = String(addr||'');
+      s = s.replace(/\b\d+\s*F\b/gi,'');
+      s = s.replace(/\bRoP\s*#?\d+\b/gi,'');
+      s = s.replace(/\b#\d+\b/g,'');
+      s = s.replace(/\b(Bldg\.?|Building|Tower|Hills|House|Gate|Plaza)\b/gi,'');
+      s = s.replace(/\s+/g,' ').trim();
+      s = s.replace(/\s*,\s*/g,', ');
+      return s;
+    }
+    function stripLeadingBuilding(addr){
+      const parts = String(addr||'').split(',').map(x=>x.trim()).filter(Boolean);
+      if(parts.length<=1) return String(addr||'');
+      if(!/\d/.test(parts[0]) && /\d/.test(parts[1])) return parts.slice(1).join(', ');
+      return parts.join(', ');
+    }
+    function buildQueries(item){
+      const raw = item.address||'';
+      const a1 = raw;
+      const a2 = stripLeadingBuilding(a1);
+      const a3 = normalizeAddress(a2);
+      const parts = a3.split(',').map(x=>x.trim()).filter(Boolean);
+      const a4 = parts.filter(p => /\d/.test(p) || /-ku\b/i.test(p) || /tokyo\b/i.test(p) || /japan\b/i.test(p) || /\d{3}-\d{4}/.test(p)).join(', ');
+      return [a1,a2,a3,a4, item.name + ', Tokyo, Japan', item.name + ', Japan'].map(x=>String(x||'').trim()).filter(Boolean);
+    }
+
+    function looksLikeHTML(text){
+      const t = (text||'').trim().toLowerCase();
+      return t.startsWith('<!doctype') || t.startsWith('<html') || t.includes('checking your browser') || t.includes('cloudflare');
+    }
+
+    async function fetchJSONorText(url){
+      const resp = await fetch(url, { headers: { 'Accept':'application/json' } });
+      const ctype = (resp.headers.get('content-type')||'').toLowerCase();
+      if(!resp.ok){
+        const txt = await resp.text().catch(()=> '');
+        return { ok:false, status:resp.status, ctype, text:txt };
+      }
+      if(ctype.includes('application/json')){
+        const j = await resp.json();
+        return { ok:true, status:resp.status, ctype, json:j };
+      }
+      const txt = await resp.text();
+      return { ok:true, status:resp.status, ctype, text:txt };
+    }
+
+    function buildNominatimURL(endpoint, q){
+      const base = endpoint.trim();
+      const params = new URLSearchParams({
+        format:'jsonv2',
+        limit:'1',
+        q:q,
+        countrycodes:'jp',
+        addressdetails:'1',
+        'accept-language':'en'
+      });
+      return base + '?' + params.toString();
+    }
+
+    async function geocodeOne(item, endpoint){
+      item.error=''; item.lastQuery=''; item.lastStatus='';
+      const queries = buildQueries(item);
+
+      for(const q of queries){
+        const url = buildNominatimURL(endpoint, q);
+        item.lastQuery = url;
+
+        try{
+          const r = await fetchJSONorText(url);
+          item.lastStatus = `HTTP ${r.status} (${r.ctype || 'unknown'})`;
+
+          if(!r.ok){
+            item.error = `Geocoder HTTP error: ${r.status}` + (r.text ? ` — ${String(r.text).slice(0,160)}` : '');
+            if(r.status === 429 || r.status === 403) return;
+            continue;
+          }
+
+          if(r.text && looksLikeHTML(r.text)){
+            item.error = 'Geocoder returned HTML (browser check / blocked). Try a different network, remove VPN, or switch geocoder endpoint.';
+            return;
+          }
+
+          const data = r.json ? r.json : (r.text ? JSON.parse(r.text) : null);
+          if(Array.isArray(data) && data.length){
+            const hit = data[0];
+            item.lat = parseFloat(hit.lat);
+            item.lon = parseFloat(hit.lon);
+            item.resolved = hit.display_name || '';
+            item.status = 'ok';
+            item.error = '';
+            upsertMarker(item);
+
+            const cache = loadCache();
+            cache[cacheKeyFor(item)] = {
+              lat: item.lat,
+              lon: item.lon,
+              resolved: item.resolved,
+              lastStatus: item.lastStatus,
+              lastQuery: item.lastQuery
+            };
+            saveCache(cache);
+            return;
+          }
+        } catch(e){
+          item.error = `Fetch failed: ${e && e.message ? e.message : String(e)}`;
+          item.lastStatus = 'Fetch exception';
+          return;
+        }
+
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      item.status='no';
+      item.error = item.error || 'No result after multiple query simplifications.';
+    }
+
+    let running = false;
+
+    function updateProgress(current, total){
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      elProgressStatus.textContent = `${current} / ${total}`;
+      elProgressFill.style.width = `${pct}%`;
+      elMiniProgressFill.style.width = `${pct}%`;
+    }
+
+    function showProgress(show){
+      if(show){
+        elProgressContainer.classList.add('active');
+        elMiniProgress.classList.add('active');
+      } else {
+        elProgressContainer.classList.remove('active');
+        elMiniProgress.classList.remove('active');
+      }
+    }
+
+    async function runGeocoding(){
+      if(running) return;
+      running = true;
+
+      // Reset ALL items to pending (true restart)
+      for(const item of state){
+        item.status='pending'; item.lat=null; item.lon=null; item.resolved='';
+        item.error=''; item.lastQuery=''; item.lastStatus=''; item._expanded=false;
+      }
+
+      if (vectorSource) vectorSource.clear();
+      markerByKey.clear();
+      render();
+
+      const endpoint = (elEndpoint.value || 'https://nominatim.openstreetmap.org/search').trim();
+      const delay = Math.max(50, parseInt(elDelay.value || '100', 10));
+      const batchSize = Math.max(1, Math.min(50, parseInt(elBatchSize.value || '4', 10)));
+
+      const total = state.length;
+      let processed = 0;
+
+      showProgress(true);
+
+      // Process in batches
+      for(let i = 0; i < state.length; i += batchSize){
+        if(!running) break;
+        
+        const batch = state.slice(i, i + batchSize);
+        
+        // Mark batch as queued and render
+        batch.forEach(item => { if(item.status === 'pending') item.status = 'queued'; });
+        render();
+        
+        // Run batch in parallel
+        await Promise.all(batch.map(async (item) => {
+          if(!running) return;
+          await geocodeOne(item, endpoint);
+          if(item.status!=='ok') item.status='no';
+        }));
+        
+        processed += batch.length;
+        updateProgress(processed, total);
+        render();
+        
+        // Delay between batches
+        if(i + batchSize < state.length && running){
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+
+      showProgress(false);
+
+      const ok = state.filter(x => x.status==='ok' && x.lat && x.lon);
+      if(ok.length && typeof ol !== 'undefined' && map){
+        const extent = ol.extent.createEmpty();
+        ok.forEach(x => {
+          const coord = ol.proj.fromLonLat([x.lon, x.lat]);
+          ol.extent.extend(extent, [coord[0], coord[1], coord[0], coord[1]]);
+        });
+        map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 500 });
+      }
+
+      running = false;
+    }
+
+    function stopGeocoding(){ 
+      running = false; 
+      showProgress(false);
+    }
+
+    elStart.addEventListener('click', ()=>{ running=false; setTimeout(runGeocoding, 50); });
+    elStop.addEventListener('click', stopGeocoding);
+
+    elClearCache.addEventListener('click', ()=>{
+      clearCache();
+    });
+
+    elTest.addEventListener('click', async ()=>{
+      elTestOut.textContent = 'Running test...';
+      const endpoint = (elEndpoint.value || 'https://nominatim.openstreetmap.org/search').trim();
+      const q = '5-1 Nibancho, Chiyoda City, Tokyo 102-0084, Japan';
+      const url = buildNominatimURL(endpoint, q);
+      try{
+        const r = await fetchJSONorText(url);
+        const head = `URL: ${url}\nSTATUS: HTTP ${r.status}\nCONTENT-TYPE: ${r.ctype || 'unknown'}\n`;
+        let body = '';
+        if(!r.ok) body = (r.text || '').slice(0, 700);
+        else if(r.json) body = JSON.stringify(r.json, null, 2).slice(0, 700);
+        else body = String(r.text || '').slice(0, 700);
+        elTestOut.textContent = head + '\nBODY (first 700 chars):\n' + body;
+      } catch(e){
+        elTestOut.textContent = 'Test failed: ' + (e && e.message ? e.message : String(e));
+      }
+    });
+
+    applyCache();
+    render();
+  </script>
+</body>
+</html>
