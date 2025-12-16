@@ -21,6 +21,7 @@
       --bad:#dc2626;
       --pending:#6b7280;
       --card-padding:16px;
+      --hover:#f1f5f9;
     }
 
     [data-theme="dark"]{
@@ -31,6 +32,7 @@
       --border:#334155;
       --shadow:0 12px 28px rgba(0, 0, 0, .4);
       --link:#60a5fa;
+      --hover:#334155;
     }
 
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text);
@@ -199,6 +201,10 @@
     .cardHead .chevron{
       transition:transform .2s ease;
       color:var(--muted);
+    }
+    .sectionTitle{
+      min-width:85px;
+      display:inline-block;
     }
     .card.expanded .cardHead .chevron{
       transform:rotate(180deg);
@@ -390,6 +396,64 @@
       font-size:11px;
       color:var(--muted);
     }
+    .copyable{
+      cursor:pointer;
+      border-radius:4px;
+      padding:1px 4px;
+      margin:-1px -4px;
+      transition:background .15s;
+    }
+    .copyable:hover{
+      background:rgba(99,102,241,.1);
+    }
+    .toast{
+      position:fixed;
+      bottom:24px;
+      left:50%;
+      transform:translateX(-50%) translateY(100px);
+      background:#1f2937;
+      color:white;
+      padding:12px 24px;
+      border-radius:12px;
+      font-size:14px;
+      font-weight:500;
+      box-shadow:0 4px 20px rgba(0,0,0,.2);
+      z-index:10001;
+      opacity:0;
+      transition:transform .3s ease, opacity .3s ease;
+    }
+    .toast.show{
+      transform:translateX(-50%) translateY(0);
+      opacity:1;
+    }
+
+    .searchRow{
+      display:flex;
+      gap:8px;
+      align-items:stretch;
+    }
+    .searchRow input{
+      flex:1;
+      min-width:0;
+    }
+    .sortBtn{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:0 16px;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      color:var(--text);
+      white-space:nowrap;
+      transition:background .15s;
+    }
+    .sortBtn:hover{
+      background:var(--hover);
+    }
 
     /* List */
     .list{border-top:1px solid var(--border); margin-top:16px;}
@@ -471,6 +535,20 @@
     }
     .warn{margin-top:8px; color:#991b1b; font-size:12px; line-height:1.35;}
     [data-theme="dark"] .warn{color:#fca5a5;}
+    .smallBtn{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:8px;
+      padding:6px 12px;
+      font-size:11px;
+      font-weight:500;
+      cursor:pointer;
+      color:var(--text);
+      transition:background .15s;
+    }
+    .smallBtn:hover{
+      background:var(--hover);
+    }
 
     /* Map popup */
     .ol-popup{
@@ -485,33 +563,56 @@
     }
 
     /* OpenLayers tweaks */
+    .ol-control{
+      background:transparent !important;
+      box-shadow:none !important;
+    }
     .ol-control button{
+      width:34px !important;
+      height:34px !important;
       border-radius:12px !important;
       border:1px solid var(--border) !important;
-      box-shadow:0 2px 10px rgba(15,23,42,.06) !important;
+      box-shadow:none !important;
+      background:var(--card) !important;
+      color:var(--text) !important;
+      font-size:18px !important;
+      cursor:pointer !important;
+    }
+    .ol-control button:hover{
+      background:var(--card) !important;
+    }
+    .ol-zoom{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      background:transparent !important;
+      box-shadow:none !important;
+    }
+    .ol-zoom button{
+      margin:0 !important;
     }
     .ol-attribution{
       background:rgba(255,255,255,.9) !important;
       border:1px solid var(--border) !important;
       border-radius:14px !important;
       padding:6px 10px !important;
-      box-shadow:0 2px 12px rgba(15,23,42,.06) !important;
+      box-shadow:none !important;
     }
     .ol-attribution ul{
       color:var(--muted) !important;
+    }
+    .ol-control.streetview-control{
+      background:transparent !important;
+      box-shadow:none !important;
     }
     .ol-control.streetview-control button{
       background:var(--card) !important;
       border:1px solid var(--border) !important;
       border-radius:12px !important;
-      box-shadow:0 2px 10px rgba(15,23,42,.06) !important;
-      transition:background .15s ease, color .15s ease;
+      box-shadow:none !important;
     }
     .ol-control.streetview-control button:hover{
-      background:#f1f5f9 !important;
-    }
-    [data-theme="dark"] .ol-control.streetview-control button:hover{
-      background:#334155 !important;
+      background:var(--card) !important;
     }
 
     /* Desktop: drawer pinned by default but still closable */
@@ -712,6 +813,57 @@
     .toggle input:checked + .toggleSlider::before{
       transform:translateX(22px);
     }
+    
+    /* Street View Modal */
+    .svModal{
+      display:none;
+      position:fixed;
+      top:0;left:0;right:0;bottom:0;
+      background:rgba(0,0,0,.7);
+      z-index:10000;
+      align-items:center;
+      justify-content:center;
+    }
+    .svModal.open{display:flex;}
+    .svModalContent{
+      width:90%;
+      max-width:1280px;
+      aspect-ratio:16/9;
+      max-height:85vh;
+      background:var(--card);
+      border-radius:16px;
+      overflow:hidden;
+      position:relative;
+      box-shadow:0 20px 60px rgba(0,0,0,.3);
+    }
+    @media (max-width:768px){
+      .svModalContent{
+        width:95%;
+        aspect-ratio:auto;
+        height:60vh;
+      }
+    }
+    .svModalClose{
+      position:absolute;
+      top:12px;right:12px;
+      width:36px;height:36px;
+      border-radius:50%;
+      background:rgba(0,0,0,.6);
+      color:white;
+      border:none;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:10;
+      font-size:20px;
+    }
+    .svModalClose:hover{background:rgba(0,0,0,.8);}
+    .svModalIframe{
+      width:100%;
+      height:100%;
+      border:none;
+    }
     </style>
 </head>
 
@@ -766,7 +918,7 @@
     <div class="drawerBody">
       <section class="card" id="settingsCard">
         <div class="cardHead">
-          <span>Settings</span>
+          <span class="sectionTitle">Settings</span>
           <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -796,6 +948,17 @@
 
           <div class="settingRow">
             <div>
+              <div class="settingLabel">Group Same Building</div>
+              <div class="settingDesc">Combine firms at same address</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="sameBuildingToggle" checked>
+              <span class="toggleSlider"></span>
+            </label>
+          </div>
+
+          <div class="settingRow">
+            <div>
               <div class="settingLabelRow">
                 <span class="settingLabel">Parallel Requests</span>
                 <span class="infoIcon">i<span class="tooltip">Number of geocoding requests to run simultaneously</span></span>
@@ -810,7 +973,7 @@
       <section class="card" id="geocodingCard">
         <div class="cardHead">
           <div style="display:flex; align-items:center; gap:12px; flex:1;">
-            <span>Geocoding</span>
+            <span class="sectionTitle">Geocoding</span>
             <div id="miniProgress" class="miniProgress">
               <div id="miniProgressFill" class="miniProgressFill" style="width:0%"></div>
             </div>
@@ -827,8 +990,28 @@
           <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
 
           <div style="margin-top:18px;">
-            <label for="endpoint">Geocoder endpoint</label>
-            <input id="endpoint" type="text" value="https://nominatim.openstreetmap.org/search" />
+            <label for="geocodeProvider">Geocoding Provider</label>
+            <select id="geocodeProvider" style="width:100%; padding:14px; border-radius:16px; border:1px solid var(--border); background:var(--bg); color:var(--text); outline:none; cursor:pointer;">
+              <option value="nominatim">Nominatim (OpenStreetMap) - Free</option>
+              <option value="mapbox">Mapbox - Best for Japan (API key required)</option>
+            </select>
+          </div>
+
+          <div id="nominatimSettings">
+            <div style="margin-top:12px;">
+              <label for="endpoint">Nominatim endpoint</label>
+              <input id="endpoint" type="text" value="https://nominatim.openstreetmap.org/search" />
+            </div>
+          </div>
+
+          <div id="mapboxSettings" style="display:none;">
+            <div style="margin-top:12px;">
+              <label for="mapboxToken">Mapbox Access Token</label>
+              <input id="mapboxToken" type="text" placeholder="pk.eyJ1Ijoi..." />
+            </div>
+            <div class="hint" style="margin-top:8px;">
+              Get your free token at <a href="https://account.mapbox.com/access-tokens/" target="_blank" rel="noopener">mapbox.com</a> (100k free/month)
+            </div>
           </div>
 
           <div style="margin-top:18px;">
@@ -868,7 +1051,7 @@
       <section class="card" id="firmsCard">
         <div class="cardHead" style="gap:12px;">
           <div style="display:flex; align-items:center; gap:12px; flex:1;">
-            <span>Firms</span>
+            <span class="sectionTitle">Firms</span>
             <div class="countChips">
               <div class="chip"><span class="dot ok"></span><span id="okCount">0</span></div>
               <div class="chip"><span class="dot no"></span><span id="noCount">0</span></div>
@@ -881,7 +1064,12 @@
         </div>
         <div class="cardBody" style="padding-bottom:12px;">
           <label for="filter">Search</label>
-          <input id="filter" type="text" placeholder="Type a firm name, city, postal code..." />
+          <div class="searchRow">
+            <input id="filter" type="text" placeholder="Search firms..." />
+            <button id="sortToggle" class="sortBtn" title="Toggle sort order">
+              <span id="sortIcon">A-Z</span>
+            </button>
+          </div>
 
           <div id="rows" class="list"></div>
         </div>
@@ -889,7 +1077,26 @@
     </div>
   </aside>
 
-  <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
+  <!-- Street View Modal -->
+  <div id="svModal" class="svModal">
+    <div class="svModalContent">
+      <button id="svModalClose" class="svModalClose">✕</button>
+      <iframe id="svModalIframe" class="svModalIframe" allow="accelerometer; gyroscope;"></iframe>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // Global error handler
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      console.error('Script Error:', msg, '\nURL:', url, '\nLine:', lineNo, '\nColumn:', columnNo, '\nError:', error);
+      return false;
+    };
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js" onerror="console.error('Failed to load OpenLayers library from CDN. Check internet connection.')"></script>
 
   <script>
     const FIRMS = [
@@ -921,6 +1128,7 @@
     const closeBtn = document.getElementById('closeBtn');
     const darkModeToggle = document.getElementById('darkModeToggle');
     const clusterToggle = document.getElementById('clusterToggle');
+    const sameBuildingToggle = document.getElementById('sameBuildingToggle');
 
     function openDrawer(){
       drawer.classList.add('open');
@@ -971,9 +1179,11 @@
     const SETTINGS_KEY = "jvc_map_settings";
     function loadSettings(){
       try {
-        return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{"darkMode":false,"clustering":false}');
+        const defaults = {darkMode:false, clustering:false, sameBuilding:true, geocodeProvider:'nominatim', mapboxToken:''};
+        const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+        return {...defaults, ...saved};
       } catch {
-        return {darkMode:false, clustering:false};
+        return {darkMode:false, clustering:false, sameBuilding:true, geocodeProvider:'nominatim', mapboxToken:''};
       }
     }
     function saveSettings(settings){
@@ -995,17 +1205,30 @@
       
       // Update map tiles if map is initialized
       if(setMapDarkMode) setMapDarkMode(enabled);
+      
+      // Refresh pin labels for new color scheme
+      if(vectorSource){
+        vectorSource.changed();
+      }
+      if(clusterSource){
+        clusterSource.changed();
+      }
     }
 
     darkModeToggle.addEventListener('change', (e)=>{
       setDarkMode(e.target.checked);
     });
 
+    // Initialize OpenLayers variables (declared early so setDarkMode can reference them)
+    let vectorSource, clusterSource, vectorLayer, clusterLayer, map, popup, popupContainer;
+
     // Load saved settings
     const savedSettings = loadSettings();
     darkModeToggle.checked = savedSettings.darkMode;
     setDarkMode(savedSettings.darkMode);
     clusterToggle.checked = savedSettings.clustering;
+    sameBuildingToggle.checked = savedSettings.sameBuilding;
+    let sameBuildingEnabled = savedSettings.sameBuilding;
 
     // Start with menu open by default
     openDrawer();
@@ -1018,7 +1241,6 @@
     }
 
     // Initialize OpenLayers map (only if library loaded)
-    let vectorSource, clusterSource, vectorLayer, clusterLayer, map, popup, popupContainer;
     
     if (typeof ol !== 'undefined') {
       vectorSource = new ol.source.Vector();
@@ -1029,30 +1251,77 @@
 
     const styleCache = {};
 
-    // Single pin style
-    const singlePinStyle = new ol.style.Style({
-      image: new ol.style.Circle({
-        radius: 8,
-        fill: new ol.style.Fill({ color: '#2563eb' }),
-        stroke: new ol.style.Stroke({ color: 'white', width: 2 })
-      })
-    });
-
-    // Selected pin style
-    const selectedPinStyle = new ol.style.Style({
-      image: new ol.style.Circle({
-        radius: 12,
-        fill: new ol.style.Fill({ color: '#dc2626' }),
-        stroke: new ol.style.Stroke({ color: 'white', width: 3 })
-      })
-    });
+    // Create pin style with label
+    function createPinStyle(name, isSelected){
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const textColor = isDark ? '#f1f5f9' : '#1f2937';
+      const bgColor = isDark ? 'rgba(30, 41, 59, 1)' : 'rgba(255, 255, 255, 1)';
+      
+      return new ol.style.Style({
+        image: new ol.style.Circle({
+          radius: isSelected ? 12 : 8,
+          fill: new ol.style.Fill({ color: isSelected ? '#dc2626' : '#2563eb' }),
+          stroke: new ol.style.Stroke({ color: 'white', width: isSelected ? 3 : 2 })
+        }),
+        text: new ol.style.Text({
+          text: name || '',
+          font: isSelected ? 'bold 14px sans-serif' : '13px sans-serif',
+          offsetY: isSelected ? -18 : -14,
+          textBaseline: 'bottom',
+          fill: new ol.style.Fill({ color: textColor }),
+          stroke: new ol.style.Stroke({ color: bgColor, width: 5 }),
+          padding: [2, 4, 2, 4]
+        }),
+        zIndex: isSelected ? 1000 : 1
+      });
+    }
+    
+    // Create grouped pin style with count badge
+    function createGroupPinStyle(names, count, isSelected){
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const textColor = isDark ? '#f1f5f9' : '#1f2937';
+      const bgColor = isDark ? 'rgba(30, 41, 59, 1)' : 'rgba(255, 255, 255, 1)';
+      
+      return [
+        new ol.style.Style({
+          image: new ol.style.Circle({
+            radius: isSelected ? 16 : 12,
+            fill: new ol.style.Fill({ color: isSelected ? '#dc2626' : 'rgba(37, 99, 235, 0.9)' }),
+            stroke: new ol.style.Stroke({ color: 'white', width: isSelected ? 3 : 2 })
+          }),
+          text: new ol.style.Text({
+            text: count.toString(),
+            font: 'bold 11px sans-serif',
+            fill: new ol.style.Fill({ color: 'white' })
+          }),
+          zIndex: isSelected ? 1000 : 1
+        }),
+        new ol.style.Style({
+          text: new ol.style.Text({
+            text: names || '',
+            font: isSelected ? 'bold 14px sans-serif' : '13px sans-serif',
+            offsetY: isSelected ? -22 : -18,
+            textBaseline: 'bottom',
+            fill: new ol.style.Fill({ color: textColor }),
+            stroke: new ol.style.Stroke({ color: bgColor, width: 5 }),
+            padding: [2, 4, 2, 4]
+          }),
+          zIndex: isSelected ? 1001 : 2
+        })
+      ];
+    }
 
     // Style function for vector layer
     function pinStyleFunction(feature){
-      if(feature.get('selected')){
-        return selectedPinStyle;
+      const name = feature.get('name') || '';
+      const isSelected = feature.get('selected');
+      const isGroup = feature.get('isGroup');
+      const groupCount = feature.get('groupCount') || 1;
+      
+      if(isGroup && groupCount > 1){
+        return createGroupPinStyle(name, groupCount, isSelected);
       }
-      return singlePinStyle;
+      return createPinStyle(name, isSelected);
     }
 
     // Cluster style function
@@ -1063,41 +1332,84 @@
       // Check if any feature in cluster is selected
       const hasSelected = features.some(f => f.get('selected'));
       
-      if(size === 1 && hasSelected){
-        return selectedPinStyle;
+      if(size === 1){
+        const f = features[0];
+        const name = f.get('name') || '';
+        const isGroup = f.get('isGroup');
+        const groupCount = f.get('groupCount') || 1;
+        
+        if(isGroup && groupCount > 1){
+          return createGroupPinStyle(name, groupCount, hasSelected);
+        }
+        return createPinStyle(name, hasSelected);
       }
       
-      let style = styleCache[size];
-      if (!style) {
-        if (size > 1) {
-          style = new ol.style.Style({
-            image: new ol.style.Circle({
-              radius: 15 + Math.min(size / 2, 15),
-              fill: new ol.style.Fill({ color: 'rgba(37, 99, 235, 0.8)' }),
-              stroke: new ol.style.Stroke({ color: 'white', width: 2 })
-            }),
-            text: new ol.style.Text({
-              text: size.toString(),
-              fill: new ol.style.Fill({ color: 'white' }),
-              font: 'bold 12px sans-serif'
-            })
-          });
-        } else {
-          style = singlePinStyle;
-        }
-        styleCache[size] = style;
+      // For clusters of multiple pins, calculate total firms
+      let totalFirms = 0;
+      let allNames = [];
+      for(const f of features){
+        const count = f.get('groupCount') || 1;
+        totalFirms += count;
+        const name = f.get('name') || '';
+        if(name) allNames.push(...name.split('\n'));
       }
-      return style;
+      allNames.sort();
+      
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const textColor = isDark ? '#f1f5f9' : '#1f2937';
+      const bgColor = isDark ? 'rgba(30, 41, 59, 1)' : 'rgba(255, 255, 255, 1)';
+      
+      return [
+        new ol.style.Style({
+          image: new ol.style.Circle({
+            radius: 15 + Math.min(totalFirms / 2, 15),
+            fill: new ol.style.Fill({ color: 'rgba(37, 99, 235, 0.8)' }),
+            stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+          }),
+          text: new ol.style.Text({
+            text: totalFirms.toString(),
+            fill: new ol.style.Fill({ color: 'white' }),
+            font: 'bold 12px sans-serif'
+          }),
+          zIndex: 1
+        }),
+        new ol.style.Style({
+          text: new ol.style.Text({
+            text: allNames.join('\n'),
+            font: '13px sans-serif',
+            offsetY: -(15 + Math.min(totalFirms / 2, 15)),
+            textBaseline: 'bottom',
+            fill: new ol.style.Fill({ color: textColor }),
+            stroke: new ol.style.Stroke({ color: bgColor, width: 5 }),
+            padding: [2, 4, 2, 4]
+          }),
+          zIndex: 2
+        })
+      ];
     }
 
     const vectorLayer = new ol.layer.Vector({
       source: vectorSource,
-      style: pinStyleFunction
+      style: pinStyleFunction,
+      renderOrder: function(a, b) {
+        // Selected features should render on top
+        const aSelected = a.get('selected') ? 1 : 0;
+        const bSelected = b.get('selected') ? 1 : 0;
+        return aSelected - bSelected;
+      }
     });
 
     const clusterLayer = new ol.layer.Vector({
       source: clusterSource,
-      style: clusterStyleFunction
+      style: clusterStyleFunction,
+      renderOrder: function(a, b) {
+        // Check if any feature in cluster is selected
+        const aFeatures = a.get('features') || [];
+        const bFeatures = b.get('features') || [];
+        const aSelected = aFeatures.some(f => f.get('selected')) ? 1 : 0;
+        const bSelected = bFeatures.some(f => f.get('selected')) ? 1 : 0;
+        return aSelected - bSelected;
+      }
     });
 
     // Tile sources for light/dark mode
@@ -1123,10 +1435,11 @@
     // Street View control
     let streetViewMode = false;
     const streetViewBtn = document.createElement('button');
-    streetViewBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="8" r="4"/>
-      <path d="M12 12v8"/>
-      <path d="M8 20h8"/>
+    streetViewBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24">
+      <circle cx="12" cy="5" r="3.5" fill="#FBBC04"/>
+      <path d="M12 9c-2.5 0-4.5 1.5-4.5 4v5.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5V15h3v3.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5V13c0-2.5-2-4-4.5-4z" fill="#FBBC04"/>
+      <circle cx="10.5" cy="4.5" r="0.8" fill="#4a4a4a"/>
+      <circle cx="13.5" cy="4.5" r="0.8" fill="#4a4a4a"/>
     </svg>`;
     streetViewBtn.title = 'Street View - Click to enable, then click on map';
     streetViewBtn.style.cssText = 'width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
@@ -1135,7 +1448,7 @@
       element: (function(){
         const div = document.createElement('div');
         div.className = 'ol-control ol-unselectable streetview-control';
-        div.style.cssText = 'top:100px;left:.5em;';
+        div.style.cssText = 'top:90px;left:.5em;';
         div.appendChild(streetViewBtn);
         return div;
       })()
@@ -1144,8 +1457,7 @@
 
     streetViewBtn.addEventListener('click', ()=>{
       streetViewMode = !streetViewMode;
-      streetViewBtn.style.background = streetViewMode ? '#2563eb' : '';
-      streetViewBtn.style.color = streetViewMode ? 'white' : '';
+      streetViewBtn.style.boxShadow = streetViewMode ? '0 0 0 3px #FBBC04' : '';
       map.getTargetElement().style.cursor = streetViewMode ? 'crosshair' : '';
     });
 
@@ -1175,6 +1487,15 @@
       setClustering(e.target.checked);
     });
 
+    // Same Building toggle
+    sameBuildingToggle.addEventListener('change', (e)=>{
+      sameBuildingEnabled = e.target.checked;
+      const settings = loadSettings();
+      settings.sameBuilding = sameBuildingEnabled;
+      saveSettings(settings);
+      rebuildAllMarkers();
+    });
+
     // Initialize with saved clustering preference
     setClustering(clusteringEnabled);
 
@@ -1198,10 +1519,15 @@
         const coords = ol.proj.toLonLat(evt.coordinate);
         const lat = coords[1];
         const lon = coords[0];
-        window.open(`https://www.google.com/maps/@${lat},${lon},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
+        
+        // Open Street View in modal
+        const svModal = document.getElementById('svModal');
+        const svIframe = document.getElementById('svModalIframe');
+        svIframe.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&layer=c&cbll=${lat},${lon}&cbp=12,0,0,0,0&output=svembed`;
+        svModal.classList.add('open');
+        
         streetViewMode = false;
-        streetViewBtn.style.background = '';
-        streetViewBtn.style.color = '';
+        streetViewBtn.style.boxShadow = '';
         map.getTargetElement().style.cursor = '';
         return;
       }
@@ -1212,14 +1538,21 @@
 
       if (feature) {
         const features = feature.get('features');
+        
+        // Handle clustered features
         if (features && features.length === 1) {
           const props = features[0].getProperties();
-          popupContainer.innerHTML = props.popupContent;
-          popup.setPosition(evt.coordinate);
+          const firmIds = props.firmIds || (props.firmId ? [props.firmId] : []);
           
-          // Select the firm and scroll to row
-          if(props.firmId){
-            selectFirm(props.firmId);
+          // Select the first firm and expand all firms in the group
+          if(firmIds.length > 0){
+            selectFirm(firmIds[0]);
+            
+            // Expand all firms in the group
+            for(const fid of firmIds){
+              const firm = state.find(x => x.id === fid);
+              if(firm) firm._expanded = true;
+            }
             
             // Expand the Firms card
             const firmsCard = document.getElementById('firmsCard');
@@ -1230,22 +1563,61 @@
             
             render();
             
-            // Scroll to the row after a small delay
+            // Scroll to the first row after a small delay
             setTimeout(() => {
-              const rowEl = document.getElementById(props.firmId);
+              const rowEl = document.getElementById(firmIds[0]);
               if(rowEl){
                 rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
             }, 100);
           }
         } else if (features && features.length > 1) {
+          // Multiple features in cluster - zoom in
           popup.setPosition(undefined);
           const extent = ol.extent.createEmpty();
           features.forEach(f => ol.extent.extend(extent, f.getGeometry().getExtent()));
           map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 500, maxZoom: 15 });
+        } else if (!features) {
+          // Non-clustered single feature (or grouped pin)
+          const props = feature.getProperties();
+          const firmIds = props.firmIds || (props.firmId ? [props.firmId] : []);
+          
+          if(firmIds.length > 0){
+            selectFirm(firmIds[0]);
+            
+            // Expand all firms in the group
+            for(const fid of firmIds){
+              const firm = state.find(x => x.id === fid);
+              if(firm) firm._expanded = true;
+            }
+            
+            // Expand the Firms card
+            const firmsCard = document.getElementById('firmsCard');
+            if(firmsCard && !firmsCard.classList.contains('expanded')){
+              document.querySelectorAll('.card').forEach(c => c.classList.remove('expanded'));
+              firmsCard.classList.add('expanded');
+            }
+            
+            render();
+            
+            // Scroll to the first row after a small delay
+            setTimeout(() => {
+              const rowEl = document.getElementById(firmIds[0]);
+              if(rowEl){
+                rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+          }
         }
       } else {
         popup.setPosition(undefined);
+        // Deselect current firm
+        if(selectedFirmId){
+          const prevFirm = state.find(x => x.id === selectedFirmId);
+          if(prevFirm) prevFirm._expanded = false;
+          selectFirm(null);
+          render();
+        }
       }
     });
 
@@ -1275,6 +1647,38 @@
     const elProgressFill = document.getElementById('progressFill');
     const elMiniProgress = document.getElementById('miniProgress');
     const elMiniProgressFill = document.getElementById('miniProgressFill');
+    const elGeocodeProvider = document.getElementById('geocodeProvider');
+    const elMapboxToken = document.getElementById('mapboxToken');
+    const elNominatimSettings = document.getElementById('nominatimSettings');
+    const elMapboxSettings = document.getElementById('mapboxSettings');
+
+    // Provider toggle
+    elGeocodeProvider.addEventListener('change', () => {
+      const isMapbox = elGeocodeProvider.value === 'mapbox';
+      elNominatimSettings.style.display = isMapbox ? 'none' : 'block';
+      elMapboxSettings.style.display = isMapbox ? 'block' : 'none';
+      // Save preference
+      const settings = loadSettings();
+      settings.geocodeProvider = elGeocodeProvider.value;
+      saveSettings(settings);
+    });
+
+    // Save Mapbox token on change
+    elMapboxToken.addEventListener('change', () => {
+      const settings = loadSettings();
+      settings.mapboxToken = elMapboxToken.value;
+      saveSettings(settings);
+    });
+
+    // Load saved geocode provider settings
+    (function initGeocodeSettings(){
+      const settings = loadSettings();
+      elGeocodeProvider.value = settings.geocodeProvider || 'nominatim';
+      elMapboxToken.value = settings.mapboxToken || '';
+      const isMapbox = settings.geocodeProvider === 'mapbox';
+      elNominatimSettings.style.display = isMapbox ? 'none' : 'block';
+      elMapboxSettings.style.display = isMapbox ? 'block' : 'none';
+    })();
 
     const CACHE_KEY = "jvc_geocode_cache_captured_style_v1";
     function loadCache(){ try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); } catch { return {}; } }
@@ -1296,6 +1700,20 @@
       _selected: false
     }));
 
+    let sortBy = 'name'; // 'name' or 'address'
+    
+    function sortState(){
+      state.sort((a, b) => {
+        if(sortBy === 'name'){
+          return a.name.localeCompare(b.name);
+        } else {
+          return a.address.localeCompare(b.address);
+        }
+      });
+    }
+    
+    sortState(); // Initial sort
+
     let selectedFirmId = null;
 
     function selectFirm(firmId){
@@ -1305,7 +1723,14 @@
       // Highlight marker on map
       if(typeof ol !== 'undefined' && vectorSource){
         vectorSource.getFeatures().forEach(f => {
-          f.set('selected', f.get('firmId') === firmId);
+          const firmIds = f.get('firmIds');
+          if(firmIds){
+            // Grouped pin - check if firmId is in the group
+            f.set('selected', firmIds.includes(firmId));
+          } else {
+            // Single pin
+            f.set('selected', f.get('firmId') === firmId);
+          }
         });
         vectorSource.changed();
         if(clusterSource) clusterSource.changed();
@@ -1325,6 +1750,17 @@
         .replaceAll('>','&gt;')
         .replaceAll('"','&quot;')
         .replaceAll("'","&#39;");
+    }
+
+    const toastEl = document.getElementById('toast');
+    let toastTimeout;
+    function showToast(msg){
+      clearTimeout(toastTimeout);
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      toastTimeout = setTimeout(() => {
+        toastEl.classList.remove('show');
+      }, 2000);
     }
 
     function firmIconSvg(){
@@ -1388,11 +1824,9 @@
           x._expanded = !x._expanded; 
           selectFirm(x.id);
           
-          // Show popup on map if firm has coordinates
-          if(x.lat && x.lon && typeof ol !== 'undefined' && map && popup && popupContainer){
+          // Pan map to firm if it has coordinates
+          if(x.lat && x.lon && typeof ol !== 'undefined' && map){
             const coord = ol.proj.fromLonLat([x.lon, x.lat]);
-            popupContainer.innerHTML = `<div style="font-weight:700;font-size:14px;">${escapeHtml(x.name)}</div>`;
-            popup.setPosition(coord);
             map.getView().animate({center: coord, duration: 300});
           }
           
@@ -1403,17 +1837,83 @@
         if(x._expanded){
           const exp = document.createElement('div');
           exp.className = 'expanded';
-          const latlon = (x.lat && x.lon) ? `<div class="mono">lat: ${x.lat.toFixed(6)}, lon: ${x.lon.toFixed(6)}</div>` : '';
-          const meta = (x.lastStatus || x.lastQuery) ? `
-            <div class="mono" style="margin-top:8px;">lastStatus: ${escapeHtml(x.lastStatus || '')}</div>
-            <div class="mono" style="margin-top:6px; word-break:break-word;">lastQuery: ${x.lastQuery ? '<a target="_blank" rel="noopener" href="'+escapeHtml(x.lastQuery)+'">'+escapeHtml(x.lastQuery)+'</a>' : ''}</div>` : '';
+          const name = `<div class="mono" style="margin-top:10px;"><b>Name:</b> <span class="copyable" data-copy="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span></div>`;
+          const inputAddr = `<div class="mono" style="margin-top:6px;"><b>Input Address:</b> <span class="copyable" data-copy="${escapeHtml(x.address)}">${escapeHtml(x.address)}</span></div>`;
+          const resolvedAddr = `<div class="mono" style="margin-top:6px;"><b>Resolved Address:</b> ${x.resolved ? `<span class="copyable" data-copy="${escapeHtml(x.resolved)}">${escapeHtml(x.resolved)}</span>` : '<span style="color:var(--muted);">—</span>'}</div>`;
+          const coordsText = (x.lat && x.lon) ? `${x.lat.toFixed(6)}, ${x.lon.toFixed(6)}` : '';
+          const coords = `<div class="mono" style="margin-top:6px;"><b>Coordinates:</b> ${coordsText ? `<span class="copyable" data-copy="${coordsText}">${coordsText}</span>` : '<span style="color:var(--muted);">—</span>'}</div>`;
+          const query = `<div class="mono" style="margin-top:6px;"><b>Query:</b> ${x.lastQuery ? `<a target="_blank" rel="noopener" href="${escapeHtml(x.lastQuery)}">Link</a>` : '<span style="color:var(--muted);">—</span>'}</div>`;
+          
+          // Google Maps link - search by address or show coordinates
+          const gmapsUrl = (x.lat && x.lon) 
+            ? `https://www.google.com/maps?q=${x.lat},${x.lon}`
+            : `https://www.google.com/maps/search/${encodeURIComponent(x.address)}`;
+          const gmapsLink = `<div class="mono" style="margin-top:6px;"><b>Google Maps:</b> <a target="_blank" rel="noopener" href="${gmapsUrl}">Open</a></div>`;
+          
           const warn = x.error ? `<div class="warn">⚠ ${escapeHtml(x.error)}</div>` : '';
+          
+          // Action buttons
+          const actions = `<div class="expandedActions" style="margin-top:12px; display:flex; gap:8px;">
+            <button class="editCoordsBtn smallBtn">Edit Coordinates</button>
+          </div>`;
+          
           exp.innerHTML = `
-            <div class="mono" style="margin-top:10px;"><b>Resolved:</b> ${escapeHtml(x.resolved || '')}</div>
-            ${latlon}
-            ${meta}
+            ${name}
+            ${inputAddr}
+            ${resolvedAddr}
+            ${coords}
+            ${query}
+            ${gmapsLink}
             ${warn}
+            ${actions}
           `;
+          
+          // Add click handlers for copyable text
+          exp.querySelectorAll('.copyable').forEach(el => {
+            el.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const text = el.getAttribute('data-copy');
+              navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied to clipboard');
+              });
+            });
+          });
+          
+          // Edit coordinates button
+          exp.querySelector('.editCoordsBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const currentCoords = (x.lat && x.lon) ? `${x.lat}, ${x.lon}` : '';
+            const input = prompt('Enter coordinates (lat, lon):\n\nYou can copy these from Google Maps by right-clicking on the map.', currentCoords);
+            if(input !== null && input.trim()){
+              const parts = input.split(',').map(s => parseFloat(s.trim()));
+              if(parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])){
+                x.lat = parts[0];
+                x.lon = parts[1];
+                x.status = 'ok';
+                x.error = '';
+                x.resolved = x.resolved || '(manually set)';
+                
+                // Update cache
+                const cache = loadCache();
+                cache[cacheKeyFor(x)] = {
+                  lat: x.lat,
+                  lon: x.lon,
+                  resolved: x.resolved,
+                  lastStatus: 'Manual',
+                  lastQuery: x.lastQuery
+                };
+                saveCache(cache);
+                
+                // Rebuild markers and re-render
+                rebuildAllMarkers();
+                render();
+                showToast('Coordinates updated');
+              } else {
+                showToast('Invalid format. Use: lat, lon');
+              }
+            }
+          });
+          
           elRows.appendChild(exp);
         }
       }
@@ -1421,6 +1921,16 @@
       updateCounts();
     }
     elFilter.addEventListener('input', render);
+
+    const sortToggle = document.getElementById('sortToggle');
+    const sortIcon = document.getElementById('sortIcon');
+    sortToggle.addEventListener('click', () => {
+      sortBy = sortBy === 'name' ? 'address' : 'name';
+      sortIcon.textContent = sortBy === 'name' ? 'A-Z' : '📍';
+      sortToggle.title = sortBy === 'name' ? 'Sorted by name' : 'Sorted by address';
+      sortState();
+      render();
+    });
 
     function toCSV(rows){
       const header = ['name','input_address','resolved_address','latitude','longitude','website','last_status','last_query','error'];
@@ -1566,29 +2076,78 @@
     }
 
     const markerByKey = new Map();
-    function upsertMarker(item){
+    
+    function coordKey(lat, lon){
+      // Round to 5 decimal places (~1 meter precision) for grouping
+      return `${lat.toFixed(5)},${lon.toFixed(5)}`;
+    }
+    
+    function rebuildAllMarkers(){
       if (typeof ol === 'undefined' || !vectorSource) return;
       
-      const key = cacheKeyFor(item);
-      if(markerByKey.has(key)){
-        vectorSource.removeFeature(markerByKey.get(key));
-        markerByKey.delete(key);
+      vectorSource.clear();
+      markerByKey.clear();
+      
+      // Get all geocoded firms
+      const geocodedFirms = state.filter(x => x.status === 'ok' && x.lat && x.lon);
+      
+      if(sameBuildingEnabled){
+        // Group by coordinates
+        const groups = new Map();
+        for(const item of geocodedFirms){
+          const key = coordKey(item.lat, item.lon);
+          if(!groups.has(key)){
+            groups.set(key, []);
+          }
+          groups.get(key).push(item);
+        }
+        
+        // Create markers for each group
+        for(const [key, items] of groups){
+          // Sort alphabetically
+          items.sort((a, b) => a.name.localeCompare(b.name));
+          
+          const isSelected = items.some(x => x._selected);
+          const names = items.map(x => x.name).join('\n');
+          const firmIds = items.map(x => x.id);
+          
+          const marker = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([items[0].lon, items[0].lat])),
+            name: names,
+            firmIds: firmIds,
+            firmId: firmIds[0], // Primary firm for selection
+            selected: isSelected,
+            isGroup: items.length > 1,
+            groupCount: items.length
+          });
+          
+          vectorSource.addFeature(marker);
+          markerByKey.set(key, marker);
+        }
+      } else {
+        // Individual markers
+        for(const item of geocodedFirms){
+          const marker = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([item.lon, item.lat])),
+            name: item.name,
+            firmId: item.id,
+            selected: item._selected,
+            isGroup: false,
+            groupCount: 1
+          });
+          
+          vectorSource.addFeature(marker);
+          markerByKey.set(cacheKeyFor(item), marker);
+        }
       }
-      if(item.status!=='ok' || !item.lat || !item.lon) return;
-
-      const popupContent = `<div style="font-weight:700;font-size:14px;">${escapeHtml(item.name)}</div>`;
-
-      const marker = new ol.Feature({
-        geometry: new ol.geom.Point(ol.proj.fromLonLat([item.lon, item.lat])),
-        popupContent: popupContent,
-        name: item.name,
-        firmId: item.id,
-        selected: item._selected
-      });
-
-      vectorSource.addFeature(marker);
-      markerByKey.set(key, marker);
     }
+    
+    function upsertMarker(item){
+      // Just rebuild all markers when same building grouping is enabled
+      // This ensures groups are properly maintained
+      rebuildAllMarkers();
+    }
+
 
     function applyCache(){
       const cache = loadCache();
@@ -1598,9 +2157,9 @@
           Object.assign(item, cache[key]);
           item.status = 'ok';
           item.error = '';
-          upsertMarker(item);
         }
       }
+      rebuildAllMarkers();
     }
 
     function normalizeAddress(addr){
@@ -1655,19 +2214,67 @@
         format:'jsonv2',
         limit:'1',
         q:q,
-        countrycodes:'jp',
+        countrycodes:'jp,us',  // Support both Japan and US
         addressdetails:'1',
         'accept-language':'en'
       });
       return base + '?' + params.toString();
     }
 
-    async function geocodeOne(item, endpoint, retryCount = 0){
+    function buildMapboxURL(token, q){
+      const params = new URLSearchParams({
+        q: q,
+        access_token: token,
+        country: 'jp,us',  // Support both Japan and US
+        limit: '1',
+        language: 'en'
+      });
+      return 'https://api.mapbox.com/search/geocode/v6/forward?' + params.toString();
+    }
+
+    function parseNominatimResponse(data){
+      if(Array.isArray(data) && data.length){
+        const hit = data[0];
+        return {
+          lat: parseFloat(hit.lat),
+          lon: parseFloat(hit.lon),
+          resolved: hit.display_name || ''
+        };
+      }
+      return null;
+    }
+
+    function parseMapboxResponse(data){
+      if(data && data.features && data.features.length){
+        const hit = data.features[0];
+        const coords = hit.geometry?.coordinates;
+        if(coords && coords.length >= 2){
+          return {
+            lat: coords[1],  // Mapbox returns [lon, lat]
+            lon: coords[0],
+            resolved: hit.properties?.full_address || hit.properties?.name || ''
+          };
+        }
+      }
+      return null;
+    }
+
+    async function geocodeOne(item, provider, endpoint, mapboxToken, retryCount = 0){
       item.error=''; item.lastQuery=''; item.lastStatus='';
       const queries = buildQueries(item);
 
       for(const q of queries){
-        const url = buildNominatimURL(endpoint, q);
+        let url;
+        if(provider === 'mapbox'){
+          if(!mapboxToken){
+            item.error = 'Mapbox access token is required. Get one at mapbox.com';
+            item.status = 'no';
+            return;
+          }
+          url = buildMapboxURL(mapboxToken, q);
+        } else {
+          url = buildNominatimURL(endpoint, q);
+        }
         item.lastQuery = url;
 
         try{
@@ -1680,7 +2287,7 @@
             if((r.status === 429 || r.status === 403) && retryCount < 3){
               const backoff = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
               await new Promise(res => setTimeout(res, backoff));
-              return geocodeOne(item, endpoint, retryCount + 1);
+              return geocodeOne(item, provider, endpoint, mapboxToken, retryCount + 1);
             }
             if(r.status === 429 || r.status === 403) return;
             continue;
@@ -1692,11 +2299,14 @@
           }
 
           const data = r.json ? r.json : (r.text ? JSON.parse(r.text) : null);
-          if(Array.isArray(data) && data.length){
-            const hit = data[0];
-            item.lat = parseFloat(hit.lat);
-            item.lon = parseFloat(hit.lon);
-            item.resolved = hit.display_name || '';
+          
+          // Parse response based on provider
+          const result = provider === 'mapbox' ? parseMapboxResponse(data) : parseNominatimResponse(data);
+          
+          if(result){
+            item.lat = result.lat;
+            item.lon = result.lon;
+            item.resolved = result.resolved;
             item.status = 'ok';
             item.error = '';
             upsertMarker(item);
@@ -1719,7 +2329,7 @@
           if(retryCount < 3){
             const backoff = Math.pow(2, retryCount) * 1000;
             await new Promise(res => setTimeout(res, backoff));
-            return geocodeOne(item, endpoint, retryCount + 1);
+            return geocodeOne(item, provider, endpoint, mapboxToken, retryCount + 1);
           }
           return;
         }
@@ -1764,9 +2374,18 @@
       markerByKey.clear();
       render();
 
+      const provider = elGeocodeProvider.value;
       const endpoint = (elEndpoint.value || 'https://nominatim.openstreetmap.org/search').trim();
+      const mapboxToken = elMapboxToken.value.trim();
       const delay = Math.max(50, parseInt(elDelay.value || '100', 10));
       const batchSize = Math.max(1, Math.min(50, parseInt(elBatchSize.value || '10', 10)));
+
+      // Validate Mapbox token
+      if(provider === 'mapbox' && !mapboxToken){
+        showToast('Please enter a Mapbox access token');
+        running = false;
+        return;
+      }
 
       const total = state.length;
       let processed = 0;
@@ -1795,7 +2414,7 @@
         let batchCompleted = 0;
         await Promise.all(batch.map(async (item) => {
           if(!running) return;
-          await geocodeOne(item, endpoint);
+          await geocodeOne(item, provider, endpoint, mapboxToken);
           if(item.status!=='ok') item.status='no';
           batchCompleted++;
           updateProgress(i + batchCompleted, total);
@@ -1833,23 +2452,74 @@
     elStart.addEventListener('click', ()=>{ running=false; setTimeout(runGeocoding, 50); });
     elStop.addEventListener('click', stopGeocoding);
 
-    elClearCache.addEventListener('click', ()=>{
-      clearCache();
+    elClearCache.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      
+      // Clear localStorage cache
+      localStorage.removeItem(CACHE_KEY);
+      
+      // Reset all state items
+      for(let i = 0; i < state.length; i++){
+        state[i].status = 'pending';
+        state[i].lat = null;
+        state[i].lon = null;
+        state[i].resolved = '';
+        state[i].error = '';
+        state[i].lastQuery = '';
+        state[i].lastStatus = '';
+        state[i]._expanded = false;
+        state[i]._selected = false;
+      }
+      selectedFirmId = null;
+      
+      // Clear all markers
+      if(typeof ol !== 'undefined' && vectorSource){
+        vectorSource.clear();
+      }
+      markerByKey.clear();
+      
+      // Re-render UI
+      render();
+      showToast('Cache cleared');
     });
 
     elTest.addEventListener('click', async ()=>{
       elTestOut.textContent = 'Running test...';
+      const provider = elGeocodeProvider.value;
       const endpoint = (elEndpoint.value || 'https://nominatim.openstreetmap.org/search').trim();
+      const mapboxToken = elMapboxToken.value.trim();
       const q = '5-1 Nibancho, Chiyoda City, Tokyo 102-0084, Japan';
-      const url = buildNominatimURL(endpoint, q);
+      
+      let url;
+      if(provider === 'mapbox'){
+        if(!mapboxToken){
+          elTestOut.textContent = 'Error: Mapbox access token is required.\n\nGet your free token at https://account.mapbox.com/access-tokens/';
+          return;
+        }
+        url = buildMapboxURL(mapboxToken, q);
+      } else {
+        url = buildNominatimURL(endpoint, q);
+      }
+      
       try{
         const r = await fetchJSONorText(url);
-        const head = `URL: ${url}\nSTATUS: HTTP ${r.status}\nCONTENT-TYPE: ${r.ctype || 'unknown'}\n`;
+        const displayUrl = provider === 'mapbox' ? url.replace(mapboxToken, 'pk.***') : url;
+        const head = `PROVIDER: ${provider}\nURL: ${displayUrl}\nSTATUS: HTTP ${r.status}\nCONTENT-TYPE: ${r.ctype || 'unknown'}\n`;
         let body = '';
         if(!r.ok) body = (r.text || '').slice(0, 700);
         else if(r.json) body = JSON.stringify(r.json, null, 2).slice(0, 700);
         else body = String(r.text || '').slice(0, 700);
-        elTestOut.textContent = head + '\nBODY (first 700 chars):\n' + body;
+        
+        // Parse and show result
+        let parsed = '';
+        if(r.ok && r.json){
+          const result = provider === 'mapbox' ? parseMapboxResponse(r.json) : parseNominatimResponse(r.json);
+          if(result){
+            parsed = `\n\nPARSED RESULT:\nLat: ${result.lat}\nLon: ${result.lon}\nAddress: ${result.resolved}`;
+          }
+        }
+        
+        elTestOut.textContent = head + '\nBODY (first 700 chars):\n' + body + parsed;
       } catch(e){
         elTestOut.textContent = 'Test failed: ' + (e && e.message ? e.message : String(e));
       }
@@ -1857,6 +2527,30 @@
 
     applyCache();
     render();
+    
+    // Street View modal close handlers
+    const svModal = document.getElementById('svModal');
+    const svModalClose = document.getElementById('svModalClose');
+    const svIframe = document.getElementById('svModalIframe');
+    
+    svModalClose.addEventListener('click', ()=>{
+      svModal.classList.remove('open');
+      svIframe.src = '';
+    });
+    
+    svModal.addEventListener('click', (e)=>{
+      if(e.target === svModal){
+        svModal.classList.remove('open');
+        svIframe.src = '';
+      }
+    });
+    
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape' && svModal.classList.contains('open')){
+        svModal.classList.remove('open');
+        svIframe.src = '';
+      }
+    });
   </script>
 </body>
 </html>
